@@ -1,0 +1,9 @@
+[package]
+name = "facial_recognition"
+version = "0.1.0"
+edition = "2024"
+authors = ["Hokkaydo"]
+
+[dependencies]
+rand = "0.9.1"
+bytemuck = "1.23.0"
