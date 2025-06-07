@@ -1,32 +1,15 @@
-use facial_recognition::linalg::tensor::Tensor;
-use facial_recognition::models::simple_linear::*;
-use facial_recognition::nn::Dumpable;
+use facial_recognition::helpers::optimizer::gradient_descent;
+use facial_recognition::models::mnist::*;
 
 fn main() {
-    /*
-    for i in 0..batch_size {
-            let mut xs = inputs[selected_inputs[i]].clone();
-            for x in xs.iter_mut() {
-                *x += rng.sample(&uniform) as f32;
-            }
-            xs.iter().for_each(|&x| data.push(x));
-        }
-        let input = Tensor::new(data, vec![batch_size, input_size]);
-        let mut targets_data = Vec::new();
-        for i in 0..batch_size {
-            let ys: Vec<f32> = targets[selected_inputs[i]].clone();
-            ys.iter().for_each(|&y| targets_data.push(y));
-        }
-        let target = Tensor::new(targets_data, vec![batch_size, output_size]);
-    */
-    let inputs = vec![
-        1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        0.0, 0.0, 0.0, 0.0,
-    ];
-    let targets = vec![1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0];
-    let inputs = Tensor::new(inputs, vec![4, 10]);
-    let targets = Tensor::new(targets, vec![4, 2]);
+    // let inputs = vec![
+    //     1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0,
+    //     1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    //     0.0, 0.0, 0.0, 0.0,
+    // ];
+    // let targets = vec![1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0];
+    // let inputs = Tensor::new(inputs, vec![4, 10]);
+    // let targets = Tensor::new(targets, vec![4, 2]);
 
     // let mut memory = Memory::new();
     // let batch_size = inputs.shape[0];
@@ -37,6 +20,22 @@ fn main() {
     // println!("Memory restored from output.bin");
     // println!("{:?}", net.forward(inputs.clone()));
 
-    let net = some(&inputs, &targets, 10000, 0.1);
-    net.dump_memory("output.bin");
+    // let net = some(&inputs, &targets, 10000, 0.1);
+    // net.dump_memory("output.bin");
+
+    let mnist = MNIST::load_mnist();
+    println!(
+        "MNIST dataset loaded with {} training images and {} test images",
+        mnist.train_images.len(),
+        mnist.test_images.len()
+    );
+    let mut train_batches = mnist.to_batches(&mnist.train_images, &mnist.train_labels, 10, true);
+    let test_batches = mnist.to_batches(&mnist.test_images, &mnist.test_labels, 100, true);
+
+    let mut net = mnist.train_linear_model(&mut train_batches, 5, gradient_descent(0.1));
+    net.dump_memory("mnist_output.bin");
+    println!("Model trained and memory dumped to mnist_output.bin");
+
+    let test_accuracy = mnist.test_model(&test_batches, &mut net);
+    println!("Test accuracy: {:.2}%", test_accuracy * 100.0);
 }

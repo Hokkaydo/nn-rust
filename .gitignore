@@ -1,5 +1,5 @@
 /target
 .idea
-output.bin
-output.csv
-loss_plot.png
+*.png
+*.bin
+*.csv
