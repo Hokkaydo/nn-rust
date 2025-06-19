@@ -166,7 +166,7 @@ impl Layer for Linear {
     fn apply_gradients(
         &mut self,
         mem: &mut Memory,
-        update_function: &dyn Fn(&Tensor, &Tensor) -> Tensor,
+        update_function: &dyn Fn(Vec<&Tensor>) -> Vec<Tensor>,
     ) {
         let weights_batch_index = self.params.get("weights_batch").unwrap();
         let bias_batch_index = self.params.get("bias_batch").unwrap();
@@ -177,8 +177,25 @@ impl Layer for Linear {
         let weights_batch = mem.get(*weights_batch_index).clone();
         let bias_batch = mem.get(*bias_batch_index).clone();
 
-        mem.alter(*weights_index, |w| update_function(w, &weights_batch));
-        mem.alter(*bias_index, |b| update_function(b, &bias_batch));
+        let weights = mem.get(*weights_index).clone();
+        let bias = mem.get(*bias_index).clone();
+
+        let mut base_update = |param: &Tensor, batch: &Tensor, param_name: &str| {
+            self.update_param(
+                self.params.clone(),
+                mem,
+                update_function,
+                param,
+                batch,
+                param_name,
+            )
+        };
+
+        let weights = base_update(&weights, &weights_batch, "weights");
+        let bias = base_update(&bias, &bias_batch, "bias");
+
+        mem.set(*weights_index, weights);
+        mem.set(*bias_index, bias);
 
         mem.alter(*weights_batch_index, |w| {
             Tensor::new(vec![0.0; w.data.len()], w.shape.clone())

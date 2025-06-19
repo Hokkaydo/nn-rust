@@ -38,7 +38,7 @@ impl NeuralNetwork {
         grad
     }
 
-    pub fn apply_gradients(&mut self, update_function: &dyn Fn(&Tensor, &Tensor) -> Tensor) {
+    pub fn apply_gradients(&mut self, update_function: &dyn Fn(Vec<&Tensor>) -> Vec<Tensor>) {
         for layer in &mut self.layers {
             layer.apply_gradients(&mut self.memory, update_function);
         }

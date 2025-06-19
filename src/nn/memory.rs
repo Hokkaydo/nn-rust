@@ -44,4 +44,12 @@ impl Memory {
         let current = self.tensors[index].clone();
         self.tensors[index] = f(&current);
     }
+
+    pub fn set(&mut self, index: usize, tensor: Tensor) {
+        assert!(
+            index < self.tensors.len(),
+            "Index out of bounds for memory tensors"
+        );
+        self.tensors[index] = tensor;
+    }
 }

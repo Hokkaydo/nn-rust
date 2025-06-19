@@ -144,7 +144,7 @@ impl MNIST {
         &self,
         batches: &mut Vec<MNISTBatch>,
         epochs: usize,
-        update_fn: impl Fn(&Tensor, &Tensor) -> Tensor,
+        update_fn: impl Fn(Vec<&Tensor>) -> Vec<Tensor>,
     ) -> NeuralNetwork {
         let mut memory = Memory::new();
         let input_size = 28 * 28; // 28x28 pixels
@@ -160,17 +160,28 @@ impl MNIST {
             memory,
         );
 
+        self.train(batches, epochs, update_fn, &mut net);
+
+        net
+    }
+
+    pub fn train(
+        &self,
+        batches: &mut Vec<MNISTBatch>,
+        epochs: usize,
+        update_fn: impl Fn(Vec<&Tensor>) -> Vec<Tensor>,
+        net: &mut NeuralNetwork,
+    ) {
         for epoch in 0..epochs {
             batches.shuffle(&mut rand::rng());
-            for batch in batches.iter() {
+            for (i, batch) in batches.iter().enumerate() {
                 let output = net.forward(batch.images.clone());
                 let loss = mse(&batch.labels, &output);
-                println!("Epoch {}: Loss = {}", epoch, loss);
+                println!("Epoch {epoch}: Batch {i} Loss = {loss}");
                 net.backward(output - batch.labels.clone());
             }
             net.apply_gradients(&update_fn);
         }
-        net
     }
 
     pub fn test_model(&self, batches: &Vec<MNISTBatch>, net: &mut NeuralNetwork) -> f32 {

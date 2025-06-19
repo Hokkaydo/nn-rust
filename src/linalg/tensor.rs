@@ -67,6 +67,11 @@ impl Tensor {
         Tensor::new(data, self.shape.clone())
     }
 
+    pub fn sqrt(&self) -> Tensor {
+        let data: Vec<f32> = self.data.iter().map(|&x| x.sqrt()).collect();
+        Tensor::new(data, self.shape.clone())
+    }
+
     pub fn abs(&self) -> Tensor {
         let data: Vec<f32> = self.data.iter().map(|&x| x.abs()).collect();
         Tensor::new(data, self.shape.clone())
@@ -616,5 +621,52 @@ impl Div<f32> for Tensor {
 
     fn div(self, scalar: f32) -> Tensor {
         &self / scalar
+    }
+}
+
+impl Div<&Tensor> for &Tensor {
+    type Output = Tensor;
+
+    fn div(self, tensor: &Tensor) -> Tensor {
+        assert_eq!(
+            self.shape, tensor.shape,
+            "Tensors must have the same shape for division"
+        );
+        let data: Vec<f32> = self
+            .data
+            .iter()
+            .zip(&tensor.data)
+            .map(|(a, b)| {
+                if *b == 0.0 {
+                    panic!("Division by zero is not allowed");
+                }
+                a / b
+            })
+            .collect();
+        Tensor::new(data, self.shape.clone())
+    }
+}
+
+impl Div<Tensor> for Tensor {
+    type Output = Tensor;
+
+    fn div(self, tensor: Tensor) -> Tensor {
+        &self / &tensor
+    }
+}
+
+impl Div<Tensor> for &Tensor {
+    type Output = Tensor;
+
+    fn div(self, tensor: Tensor) -> Tensor {
+        self / &tensor
+    }
+}
+
+impl Div<&Tensor> for Tensor {
+    type Output = Tensor;
+
+    fn div(self, tensor: &Tensor) -> Tensor {
+        &self / tensor
     }
 }

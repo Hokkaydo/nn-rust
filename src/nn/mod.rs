@@ -5,6 +5,7 @@ pub mod models;
 
 use crate::linalg::tensor::Tensor;
 use crate::nn::memory::Memory;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 
@@ -17,8 +18,52 @@ pub trait Layer: Dumpable {
     fn apply_gradients(
         &mut self,
         _mem: &mut Memory,
-        _update_function: &dyn Fn(&Tensor, &Tensor) -> Tensor,
+        _update_function: &dyn Fn(Vec<&Tensor>) -> Vec<Tensor>,
     ) {
+    }
+
+    fn update_param(
+        &self,
+        mut params: HashMap<String, usize>,
+        mem: &mut Memory,
+        update_function: &dyn Fn(Vec<&Tensor>) -> Vec<Tensor>,
+        val: &Tensor,
+        grad: &Tensor,
+        param_base_name: &str,
+    ) -> Tensor {
+        let optimizer_input_number = params
+            .get(&format!("{param_base_name}_optimizer_input_number"))
+            .unwrap_or(&0);
+        let mut optimizer_inputs = vec![val, grad];
+
+        for i in 0..*optimizer_input_number {
+            optimizer_inputs.push(
+                mem.get(
+                    *params
+                        .get(&format!("{param_base_name}_optimizer_param_{i}"))
+                        .unwrap(),
+                ),
+            );
+        }
+
+        let output = update_function(optimizer_inputs);
+
+        params.insert(
+            format!("{param_base_name}_optimizer_input_number"),
+            output.len() - 1,
+        );
+
+        for i in 1..output.len() {
+            let param_name = format!("{param_base_name}_optimizer_param_{}", i - 1);
+            let param_index = params.get(&param_name);
+            if let Some(index) = param_index {
+                mem.alter(*index, |_| output[i].clone());
+            } else {
+                let index = mem.push(output[i].clone());
+                params.insert(param_name, index);
+            }
+        }
+        output[0].clone()
     }
 }
 
