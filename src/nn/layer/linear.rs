@@ -39,11 +39,6 @@ impl Linear {
 }
 
 impl Dumpable for Linear {
-    fn new() -> Self {
-        Linear {
-            params: HashMap::new(),
-        }
-    }
     fn dump(&self, mem: &Memory, file: &mut BufWriter<File>) {
         let weights_index = self.params.get("weights").unwrap();
         let bias_index = self.params.get("bias").unwrap();
@@ -63,25 +58,13 @@ impl Dumpable for Linear {
                 .collect::<Vec<u8>>(),
         );
 
-        file.write_all(&sizes)
-            .expect("Unable to write sizes to file");
-        file.write_all(
-            &weights
-                .data
-                .iter()
-                .flat_map(|&x| x.to_le_bytes())
-                .collect::<Vec<u8>>(),
-        )
-        .expect("Unable to write weights to file");
-        file.write_all(
-            &bias
-                .data
-                .iter()
-                .flat_map(|&x| x.to_le_bytes())
-                .collect::<Vec<u8>>(),
-        )
-        .expect("Unable to write bias to file");
+        file.write_all(&sizes).unwrap();
+        file.write_all(self.f32_to_bytes(&weights.data).as_slice())
+            .unwrap();
+        file.write_all(self.f32_to_bytes(&bias.data).as_slice())
+            .unwrap();
     }
+
     fn restore(&mut self, mem: &mut Memory, file: &mut BufReader<File>) {
         let mut sizes = [0u8; 32]; // 4 * 8 bytes for 4 usize values
         file.read_exact(&mut sizes)
@@ -125,6 +108,14 @@ impl Dumpable for Linear {
 }
 
 impl Layer for Linear {
+    fn new() -> Self
+    where
+        Self: Sized,
+    {
+        Linear {
+            params: HashMap::new(),
+        }
+    }
     fn forward(&mut self, mem: &mut Memory, input: &Tensor) -> Tensor {
         self.params
             .insert("input".to_string(), mem.push(input.clone()));

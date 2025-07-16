@@ -1,8 +1,8 @@
 use crate::helpers::metrics::mse;
 use crate::linalg::tensor::Tensor;
-use crate::nn::Dumpable;
+use crate::nn::Layer;
 use crate::nn::activation::{ReLU, Sigmoid};
-use crate::nn::linear::Linear;
+use crate::nn::layer::linear::Linear;
 use crate::nn::memory::Memory;
 use crate::nn::models::NeuralNetwork;
 use rand::seq::SliceRandom;

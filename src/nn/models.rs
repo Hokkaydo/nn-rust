@@ -1,8 +1,8 @@
 use crate::linalg::tensor::Tensor;
+use crate::nn::Layer;
 use crate::nn::activation::{LogSoftmax, ReLU, Sigmoid};
-use crate::nn::linear::Linear;
+use crate::nn::layer::linear::Linear;
 use crate::nn::memory::Memory;
-use crate::nn::{Dumpable, Layer};
 use std::io::{BufRead, Write};
 
 pub struct NeuralNetwork {

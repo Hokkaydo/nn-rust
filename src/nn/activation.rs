@@ -5,15 +5,15 @@ use crate::nn::{Dumpable, Layer};
 pub struct ReLU {}
 
 impl Dumpable for ReLU {
-    fn new() -> Self {
-        ReLU {}
-    }
     fn type_id(&self) -> &'static str {
         "relu"
     }
 }
 
 impl Layer for ReLU {
+    fn new() -> Self {
+        ReLU {}
+    }
     fn forward(&mut self, _memory: &mut Memory, input: &Tensor) -> Tensor {
         input.map(|input| if input < 0.0 { 0.0 } else { input })
     }
@@ -27,17 +27,17 @@ pub struct LogSoftmax {
 }
 
 impl Dumpable for LogSoftmax {
-    fn new() -> Self {
-        LogSoftmax {
-            forward_pass_result_index: 0,
-        }
-    }
     fn type_id(&self) -> &'static str {
         "log_softmax"
     }
 }
 
 impl Layer for LogSoftmax {
+    fn new() -> Self {
+        LogSoftmax {
+            forward_pass_result_index: 0,
+        }
+    }
     fn forward(&mut self, _memory: &mut Memory, input: &Tensor) -> Tensor {
         let max = input.max();
         let exp_data = input.map(|x| (x - max).exp());
@@ -64,15 +64,15 @@ impl Layer for LogSoftmax {
 pub struct Softmax {}
 
 impl Dumpable for Softmax {
-    fn new() -> Self {
-        Softmax {}
-    }
     fn type_id(&self) -> &'static str {
         "softmax"
     }
 }
 
 impl Layer for Softmax {
+    fn new() -> Self {
+        Softmax {}
+    }
     fn forward(&mut self, _memory: &mut Memory, input: &Tensor) -> Tensor {
         let max = input.max();
         let exp_data = input.map(|x| (x - max).exp());
@@ -93,15 +93,15 @@ pub struct Sigmoid {
     sigmoid_index: usize,
 }
 impl Dumpable for Sigmoid {
-    fn new() -> Self {
-        Sigmoid { sigmoid_index: 0 }
-    }
     fn type_id(&self) -> &'static str {
         "sigmoid"
     }
 }
 
 impl Layer for Sigmoid {
+    fn new() -> Self {
+        Sigmoid { sigmoid_index: 0 }
+    }
     fn forward(&mut self, _memory: &mut Memory, input: &Tensor) -> Tensor {
         let sigmoid = input.map(|x| 1.0 / (1.0 + (-x).exp()));
         self.sigmoid_index = _memory.push(sigmoid.clone());

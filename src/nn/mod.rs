@@ -1,5 +1,5 @@
 pub mod activation;
-pub mod linear;
+pub(crate) mod layer;
 pub mod memory;
 pub mod models;
 
@@ -10,6 +10,9 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 
 pub trait Layer: Dumpable {
+    fn new() -> Self
+    where
+        Self: Sized;
     fn forward(&mut self, mem: &mut Memory, input: &Tensor) -> Tensor;
     fn backward(&mut self, mem: &mut Memory, grad_output: &Tensor) -> Tensor;
     /**
@@ -68,12 +71,15 @@ pub trait Layer: Dumpable {
 }
 
 pub trait Dumpable {
-    fn new() -> Self
-    where
-        Self: Sized;
     fn dump(&self, _mem: &Memory, _file: &mut BufWriter<File>) {}
     fn restore(&mut self, _mem: &mut Memory, _file: &mut BufReader<File>) {}
     fn type_id(&self) -> &'static str;
+    fn f32_to_bytes(&self, f: &Vec<f32>) -> Vec<u8> {
+        f.iter()
+            .map(|&x| x.to_le_bytes())
+            .flatten()
+            .collect::<Vec<u8>>()
+    }
 }
 
 impl Tensor {
