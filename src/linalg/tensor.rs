@@ -3,7 +3,7 @@ use std::ops::*;
 
 #[derive(Debug, Clone)]
 pub struct Tensor {
-    pub data: Vec<f32>,
+    pub(crate) data: Vec<f32>,
     pub shape: Vec<usize>,
 }
 
@@ -15,59 +15,6 @@ impl Tensor {
             "Data length does not match shape dimensions"
         );
         Tensor { data, shape }
-    }
-
-    pub fn full(shape: Vec<usize>, value: f32) -> Self {
-        let size = shape.iter().product();
-        let data = vec![value; size];
-        Tensor { data, shape }
-    }
-
-    pub fn zeros(shape: Vec<usize>) -> Self {
-        Tensor::full(shape, 0.0)
-    }
-
-    pub fn ones(shape: Vec<usize>) -> Self {
-        Tensor::full(shape, 1.0)
-    }
-
-    pub fn eye(size: usize) -> Self {
-        let mut data = vec![0.0; size * size];
-        for i in 0..size {
-            data[i * size + i] = 1.0;
-        }
-        Tensor::new(data, vec![size, size])
-    }
-
-    pub fn random(shape: Vec<usize>) -> Self {
-        let size = shape.iter().product();
-        let data: Vec<f32> = (0..size).map(|_| rand::random::<f32>()).collect();
-        Tensor { data, shape }
-    }
-
-    pub fn reshape(&self, shape: &[usize]) -> Self {
-        let new_size: usize = shape.iter().product();
-        assert_eq!(
-            new_size,
-            self.data.len(),
-            "New shape size does not match original data length"
-        );
-        Tensor::new(self.data.clone(), shape.to_vec())
-    }
-
-    pub fn pad2d_to(&self, new_rows: usize, new_cols: usize) -> Self {
-        assert_eq!(
-            self.shape.len(),
-            2,
-            "Padding is only defined for 2D tensors"
-        );
-        let mut result = vec![0.0; new_rows * new_cols];
-        for r in 0..self.shape[0] {
-            for c in 0..self.shape[1] {
-                result[r * new_cols + c] = self.data[r * self.shape[1] + c];
-            }
-        }
-        Tensor::new(result, vec![new_rows, new_cols])
     }
 
     pub fn get(&self, indices: &[usize]) -> f32 {
