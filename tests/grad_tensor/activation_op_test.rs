@@ -7,8 +7,8 @@ fn test_sigmoid() {
     let tensor = Tensor::new(data, &[5]);
     let result = tensor.sigmoid();
     let expected_data = vec![
-        1.0 / (1.0 + (2.0f32).exp()),
-        1.0 / (1.0 + (1.0f32).exp()),
+        1.0 / (1.0 + 2.0f32.exp()),
+        1.0 / (1.0 + 1.0f32.exp()),
         0.5,
         1.0 / (1.0 + (-1.0f32).exp()),
         1.0 / (1.0 + (-2.0f32).exp()),

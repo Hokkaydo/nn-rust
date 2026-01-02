@@ -102,21 +102,6 @@ impl Tensor {
         flat_index
     }
 
-    /// Computes the multidimensional indices for a given flat index in the storage.
-    /// # Arguments
-    /// * `flat_index` - The flat index in the storage.
-    /// # Returns
-    /// A vector containing the computed multidimensional indices.
-    pub(crate) fn compute_indices(&self, flat_index: usize) -> Vec<usize> {
-        let mut indices = vec![0; self.shape.len()];
-        let mut remaining = flat_index - self.offset;
-        for i in 0..self.shape.len() {
-            indices[i] = remaining / self.strides[i];
-            remaining %= self.strides[i];
-        }
-        indices
-    }
-
     /// Returns the shape of the tensor_old as a slice.
     pub fn shape(&self) -> &[usize] {
         &self.shape

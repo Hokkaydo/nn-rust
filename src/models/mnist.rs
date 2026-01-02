@@ -120,7 +120,7 @@ impl MNIST {
 
             let labels: Vec<f32> = indices
                 .iter()
-                .flat_map(|&idx| Self::label_to_one_hot(labels[idx as usize]))
+                .flat_map(|&idx| Self::label_to_one_hot(labels[idx]))
                 .collect();
 
             let shape = if flat {
