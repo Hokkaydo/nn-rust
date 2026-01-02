@@ -1,5 +1,5 @@
 [package]
-name = "facial_recognition"
+name = "nn-rs"
 version = "0.1.0"
 edition = "2024"
 authors = ["Hokkaydo"]
