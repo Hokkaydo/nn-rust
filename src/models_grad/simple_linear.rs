@@ -1,8 +1,7 @@
-use crate::helpers::metrics::*;
-use crate::helpers::optimizer::gradient_descent;
-use crate::helpers::stopper::*;
-use crate::linalg::tensor_old::Tensor;
-use crate::nn::{Dumpable, activation::*, linear::Linear, memory::Memory, models::NeuralNetwork};
+use crate::helpers_grad::metrics::*;
+use crate::helpers_grad::stopper::*;
+use crate::linalg::tensor_grad::{Scalar, Tensor};
+use crate::nn_grad::{activation::*, linear::Linear, models::NeuralNetwork};
 use rand::Rng;
 use rand::seq::SliceRandom;
 use std::io::Write;
@@ -12,21 +11,17 @@ pub fn some(
     inputs: &Tensor,
     targets: &Tensor,
     epochs: usize,
-    mut learning_rate: f32,
+    mut learning_rate: Scalar,
 ) -> NeuralNetwork {
-    let mut memory = Memory::new();
     let batch_size = inputs.shape()[0];
     let input_size = inputs.shape()[1];
     let output_size = targets.shape()[1];
-    let mut net = NeuralNetwork::init(
-        vec![
-            Box::new(Linear::init(&mut memory, input_size, 16)),
-            Box::new(ReLU::new()),
-            Box::new(Linear::init(&mut memory, 16, output_size)),
-            Box::new(Sigmoid::new()),
-        ],
-        memory,
-    );
+    let mut net = NeuralNetwork::init(vec![
+        Box::new(Linear::init(input_size, 16)),
+        Box::new(ReLU::default()),
+        Box::new(Linear::init(16, output_size)),
+        Box::new(Sigmoid::default()),
+    ]);
 
     let mut rng = rand::rng();
     let uniform = rand::distr::Uniform::new(-0.1, 0.1).unwrap();
@@ -38,20 +33,23 @@ pub fn some(
         0.0001,       // threshold
     );
     for epoch in 0..epochs {
-        let mut data: Vec<f32> = Vec::new();
+        let mut data: Vec<Scalar> = Vec::new();
         let mut shuffled_indices = (0..batch_size).collect::<Vec<usize>>();
         shuffled_indices.shuffle(&mut rng);
 
-        let input = inputs
-            .get_levels(&shuffled_indices)
-            .map(|x| x + rng.clone().sample(&uniform) as f32);
-        let target = targets.get_levels(&shuffled_indices);
+        let noise: Vec<Scalar> = (0..batch_size)
+            .map(|_| rng.clone().sample(&uniform) as Scalar)
+            .collect();
+        let noise_tensor = Tensor::new(noise, &[batch_size, 1]);
+        let input = inputs.gather(0, &shuffled_indices) + noise_tensor;
+        let target = targets.gather(0, &shuffled_indices);
         let output = net.forward(input.clone());
         let loss = mse(&target, &output);
-        println!("Epoch {}: Loss = {}", epoch, loss);
-        writeln!(file, "{},{}", epoch, loss).expect("Unable to write to file");
+        let loss_scalar = loss.as_scalar().unwrap_or(0.0);
+        println!("Epoch {}: Loss = {}", epoch, loss_scalar);
+        writeln!(file, "{},{}", epoch, loss_scalar).expect("Unable to write to file");
 
-        if epochs > epochs / 10 && plateau.has_plateaued(loss) {
+        if epochs > epochs / 10 && plateau.has_plateaued(loss_scalar) {
             learning_rate *= 0.8;
             println!("Learning rate adjusted to {}", learning_rate);
         }
@@ -61,10 +59,10 @@ pub fn some(
         }
 
         net.backward(output - target.clone());
-        net.apply_gradients(&*gradient_descent(learning_rate));
+        // net.apply_gradients(&*gradient_descent(learning_rate));
     }
     for i in 0..batch_size {
-        let input = inputs.get_level(i);
+        let input = inputs.slice(0, i, 1);
         let output = net.forward(input.clone());
         println!("Input: {:?}, Output: {:?}", input, output);
     }

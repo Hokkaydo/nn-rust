@@ -1,6 +1,6 @@
-use facial_recognition::helpers::optimizer::*;
-use facial_recognition::models::mnist::*;
-use facial_recognition::nn::models::NeuralNetwork;
+use facial_recognition::helpers_grad::optimizer::*;
+use facial_recognition::models_grad::mnist::*;
+use facial_recognition::nn_grad::models::NeuralNetwork;
 
 fn main() {
     let mnist = MNIST::load_mnist();
@@ -31,7 +31,7 @@ fn train(mnist: &MNIST, net: Option<NeuralNetwork>) -> NeuralNetwork {
     println!(
         "Training on {} batches of size {}",
         train_batches.len(),
-        train_batches[0].images.shape[0]
+        train_batches[0].images.shape()[0]
     );
     let optimizer = if std::env::args().any(|arg| arg == "--adam") {
         adam(0.1, 0.9, 0.999, 1e-8)
@@ -42,7 +42,7 @@ fn train(mnist: &MNIST, net: Option<NeuralNetwork>) -> NeuralNetwork {
     };
 
     let net = if let Some(mut trained_net) = net {
-        mnist.train(&mut train_batches, 5, optimizer, &mut trained_net);
+        mnist.train(&mut train_batches, 1, optimizer, &mut trained_net);
         trained_net
     } else {
         mnist.train_linear_model(&mut train_batches, 5, optimizer)
@@ -55,7 +55,5 @@ fn train(mnist: &MNIST, net: Option<NeuralNetwork>) -> NeuralNetwork {
 }
 
 fn load() -> NeuralNetwork {
-    let mut net = NeuralNetwork::new();
-    net.restore_memory("mnist_output.bin");
-    net
+    NeuralNetwork::restore("mnist_output.bin")
 }

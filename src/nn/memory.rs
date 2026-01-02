@@ -1,4 +1,4 @@
-use crate::linalg::tensor::Tensor;
+use crate::linalg::tensor_old::Tensor;
 
 pub struct Memory {
     size: usize,

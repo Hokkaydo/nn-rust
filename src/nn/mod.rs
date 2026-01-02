@@ -3,7 +3,7 @@ pub mod linear;
 pub mod memory;
 pub mod models;
 
-use crate::linalg::tensor::Tensor;
+use crate::linalg::tensor_old::Tensor;
 use crate::nn::memory::Memory;
 use std::collections::HashMap;
 use std::fs::File;
@@ -13,7 +13,7 @@ pub trait Layer: Dumpable {
     fn forward(&mut self, mem: &mut Memory, input: &Tensor) -> Tensor;
     fn backward(&mut self, mem: &mut Memory, grad_output: &Tensor) -> Tensor;
     /**
-    The update function takes the current parameter tensor and its gradient tensor, and returns the updated parameter tensor.
+    The update function takes the current parameter tensor_old and its gradient tensor_old, and returns the updated parameter tensor_old.
     */
     fn apply_gradients(
         &mut self,

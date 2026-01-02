@@ -1,4 +1,4 @@
-use crate::linalg::tensor::Tensor;
+use crate::linalg::tensor_old::Tensor;
 
 pub fn mse(target: &Tensor, pred: &Tensor) -> f32 {
     assert_eq!(
@@ -58,5 +58,5 @@ pub fn accuracy(target: &Tensor, pred: &Tensor) -> f32 {
             correct += 1;
         }
     }
-    correct as f32 / target.shape[0] as f32
+    correct as f32 / target.shape()[0] as f32
 }

@@ -1,10 +1,8 @@
-use crate::helpers::metrics::mse;
-use crate::linalg::tensor_old::Tensor;
-use crate::nn::Dumpable;
-use crate::nn::activation::{ReLU, Sigmoid};
-use crate::nn::linear::Linear;
-use crate::nn::memory::Memory;
-use crate::nn::models::NeuralNetwork;
+use crate::helpers_grad::metrics::mse;
+use crate::linalg::tensor_grad::{Scalar, Tensor};
+use crate::nn_grad::activation::{ReLU, Sigmoid};
+use crate::nn_grad::linear::Linear;
+use crate::nn_grad::models::NeuralNetwork;
 use rand::seq::SliceRandom;
 use std::io::Read;
 
@@ -62,7 +60,7 @@ impl MNIST {
                 .expect("Failed to read train image");
             image
                 .iter_mut()
-                .for_each(|x| *x = (*x as f32 / 255.0) as u8);
+                .for_each(|x| *x = (*x as Scalar / 255.0) as u8);
             train_images.push(image);
         }
         for _ in 0..num_test {
@@ -78,7 +76,7 @@ impl MNIST {
                 .expect("Failed to read test image");
             image
                 .iter_mut()
-                .for_each(|x| *x = (*x as f32 / 255.0) as u8);
+                .for_each(|x| *x = (*x as Scalar / 255.0) as u8);
             test_images.push(image);
         }
         MNIST {
@@ -89,7 +87,7 @@ impl MNIST {
         }
     }
 
-    fn label_to_one_hot(label: u8) -> Vec<f32> {
+    fn label_to_one_hot(label: u8) -> Vec<Scalar> {
         let mut one_hot = vec![0.0; 10];
         one_hot[label as usize] = 1.0;
         one_hot
@@ -113,24 +111,23 @@ impl MNIST {
             let end = start + batch_size;
             let indices = &shuffled_indices[start..end];
 
-            let images: Vec<f32> = indices
+            let images: Vec<Scalar> = indices
                 .iter()
-                .flat_map(|&idx| images[idx].iter().map(|&x| x as f32 / 255.0))
+                .flat_map(|&idx| images[idx].iter().map(|&x| x as Scalar / 255.0))
                 .collect();
 
-            let labels: Vec<f32> = indices
+            let labels: Vec<Scalar> = indices
                 .iter()
                 .flat_map(|&idx| Self::label_to_one_hot(labels[idx as usize]))
                 .collect();
 
-            let shape = if flat {
-                vec![batch_size, 28 * 28]
+            let images_tensor = if flat {
+                Tensor::new(images, &[batch_size, 28 * 28])
             } else {
-                vec![batch_size, 28, 28]
+                Tensor::new(images, &[batch_size, 28, 28])
             };
 
-            let images_tensor = Tensor::new(images, shape);
-            let labels_tensor = Tensor::new(labels, vec![batch_size, 10]);
+            let labels_tensor = Tensor::new(labels, &[batch_size, 10]);
 
             batches.push(MNISTBatch {
                 images: images_tensor,
@@ -146,19 +143,15 @@ impl MNIST {
         epochs: usize,
         update_fn: impl Fn(Vec<&Tensor>) -> Vec<Tensor>,
     ) -> NeuralNetwork {
-        let mut memory = Memory::new();
         let input_size = 28 * 28; // 28x28 pixels
         let output_size = 10; // 10 classes for digits 0-9
 
-        let mut net = NeuralNetwork::init(
-            vec![
-                Box::new(Linear::init(&mut memory, input_size, 128)),
-                Box::new(ReLU::new()),
-                Box::new(Linear::init(&mut memory, 128, output_size)),
-                Box::new(Sigmoid::new()),
-            ],
-            memory,
-        );
+        let mut net = NeuralNetwork::init(vec![
+            Box::new(Linear::init(input_size, 128)),
+            Box::new(ReLU::default()),
+            Box::new(Linear::init(128, output_size)),
+            Box::new(Sigmoid::default()),
+        ]);
 
         self.train(batches, epochs, update_fn, &mut net);
 
@@ -177,27 +170,28 @@ impl MNIST {
             for (i, batch) in batches.iter().enumerate() {
                 let output = net.forward(batch.images.clone());
                 let loss = mse(&batch.labels, &output);
-                println!("Epoch {epoch}: Batch {i} Loss = {loss}");
+                let loss_scalar = loss.as_scalar().unwrap_or(0.0);
+                println!("Epoch {epoch}: Batch {i} Loss = {loss_scalar}");
                 net.backward(output - batch.labels.clone());
             }
-            net.apply_gradients(&update_fn);
+            // net.apply_gradients(&update_fn);
         }
     }
 
-    pub fn test_model(&self, batches: &Vec<MNISTBatch>, net: &mut NeuralNetwork) -> f32 {
+    pub fn test_model(&self, batches: &Vec<MNISTBatch>, net: &mut NeuralNetwork) -> Scalar {
         let mut correct = 0;
         let mut total = 0;
 
         for batch in batches {
             let output = net.forward(batch.images.clone());
-            for (i, &label) in batch.labels.data.iter().enumerate() {
-                let predicted = output.data[i].round() as u8;
+            for (i, &label) in batch.labels.storage.data.iter().enumerate() {
+                let predicted = output.storage.data[i].round() as u8;
                 if predicted == label as u8 {
                     correct += 1;
                 }
                 total += 1;
             }
         }
-        correct as f32 / total as f32
+        correct as Scalar / total as Scalar
     }
 }

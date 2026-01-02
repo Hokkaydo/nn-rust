@@ -22,6 +22,10 @@ impl Tensor {
         self.data[flat_index]
     }
 
+    pub fn shape(&self) -> &[usize] {
+        &self.shape
+    }
+
     pub fn get_level(&self, index: usize) -> Tensor {
         assert!(
             index < self.shape[0],
@@ -181,7 +185,7 @@ impl Tensor {
         };
         if indices.len() != shape.len() {
             panic!(
-                "Indices length {} does not match tensor shape length {}",
+                "Indices length {} does not match tensor_old shape length {}",
                 indices.len(),
                 shape.len()
             );

@@ -1,4 +1,4 @@
-use crate::linalg::tensor::Tensor;
+use crate::linalg::tensor_old::Tensor;
 use crate::nn::activation::{LogSoftmax, ReLU, Sigmoid};
 use crate::nn::linear::Linear;
 use crate::nn::memory::Memory;
