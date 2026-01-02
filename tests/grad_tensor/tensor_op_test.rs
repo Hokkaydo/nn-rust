@@ -1,6 +1,6 @@
 extern crate core;
 
-use facial_recognition::linalg::tensor_grad::Tensor;
+use nn_rs::linalg::tensor_grad::Tensor;
 
 #[cfg(test)]
 #[test]

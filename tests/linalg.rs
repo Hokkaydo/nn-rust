@@ -1,4 +1,4 @@
-use facial_recognition::linalg::tensor_old::Tensor;
+use nn_rs::linalg::tensor_old::Tensor;
 
 #[cfg(test)]
 #[test]

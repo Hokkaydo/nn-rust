@@ -1,6 +1,6 @@
-use facial_recognition::helpers_grad::optimizer::*;
-use facial_recognition::models_grad::mnist::*;
-use facial_recognition::nn_grad::models::NeuralNetwork;
+use nn_rs::helpers_grad::optimizer::*;
+use nn_rs::models_grad::mnist::*;
+use nn_rs::nn_grad::models::NeuralNetwork;
 
 fn main() {
     let mnist = MNIST::load_mnist();

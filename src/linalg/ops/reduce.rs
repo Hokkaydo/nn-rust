@@ -168,7 +168,7 @@ impl Tensor {
     /// A vector containing the indices of the maximum values along the specified axis
     /// # Example
     /// ```rust
-    /// use facial_recognition::linalg::tensor_grad::Tensor;
+    /// use nn_rs::linalg::tensor_grad::Tensor;
     /// let tensor = Tensor::new(vec![4.0, 3.0, 6.0, 1.0, 5.0, 2.0], &vec![2, 3]);
     /// // 4 3 6
     /// // 1 5 2
