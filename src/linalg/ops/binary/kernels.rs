@@ -1,5 +1,5 @@
 use crate::linalg::autograd::grad_fn::TensorEWMulTensorFn;
-use crate::linalg::tensor_grad::{Scalar, Storage, Tensor};
+use crate::linalg::tensor_grad::{InternalTensor, Scalar, Storage, Tensor};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -36,7 +36,7 @@ pub fn add_tt(a: &Tensor, b: &Tensor) -> Tensor {
 
     let requires_grad = a.requires_grad || b.requires_grad;
 
-    Tensor {
+    InternalTensor {
         storage: Rc::new(Storage::new(result_data)),
         shape: a.shape().to_vec(),
         strides: a.strides.clone(),
@@ -50,12 +50,14 @@ pub fn add_tt(a: &Tensor, b: &Tensor) -> Tensor {
             None
         },
         parents: if requires_grad {
-            vec![Rc::new((*a).clone()), Rc::new((*b).clone())]
+            // a and b are already Rc-wrapped Tensor types
+            vec![a.clone(), b.clone()]
         } else {
             Vec::new()
         },
         requires_grad,
     }
+    .into()
 }
 pub fn add_ts(a: &Tensor, b: Scalar) -> Tensor {
     let mut result_data = Vec::with_capacity(a.shape().iter().product());
@@ -63,7 +65,7 @@ pub fn add_ts(a: &Tensor, b: Scalar) -> Tensor {
         result_data.push(a.storage.data[i] + b);
     }
     let requires_grad = a.requires_grad;
-    Tensor {
+    InternalTensor {
         storage: Rc::new(Storage::new(result_data)),
         shape: a.shape().to_vec(),
         strides: a.strides.clone(),
@@ -75,12 +77,13 @@ pub fn add_ts(a: &Tensor, b: Scalar) -> Tensor {
             None
         },
         parents: if requires_grad {
-            vec![Rc::new(a.clone())]
+            vec![a.clone()]
         } else {
             Vec::new()
         },
         requires_grad,
     }
+    .into()
 }
 
 pub fn sub_tt(a: &Tensor, b: &Tensor) -> Tensor {
@@ -107,7 +110,7 @@ pub fn sub_tt(a: &Tensor, b: &Tensor) -> Tensor {
 
     let requires_grad = a.requires_grad || b.requires_grad;
 
-    Tensor {
+    InternalTensor {
         storage: Rc::new(Storage::new(result_data)),
         shape: a.shape().to_vec(),
         strides: a.strides.clone(),
@@ -121,12 +124,13 @@ pub fn sub_tt(a: &Tensor, b: &Tensor) -> Tensor {
             None
         },
         parents: if requires_grad {
-            vec![Rc::new((*a).clone()), Rc::new((*b).clone())]
+            vec![a.clone(), b.clone()]
         } else {
             Vec::new()
         },
         requires_grad,
     }
+    .into()
 }
 pub fn sub_ts(a: &Tensor, b: Scalar) -> Tensor {
     let result_data = a
@@ -137,7 +141,7 @@ pub fn sub_ts(a: &Tensor, b: Scalar) -> Tensor {
         .collect::<Vec<Scalar>>();
     let requires_grad = a.requires_grad;
 
-    Tensor {
+    InternalTensor {
         storage: Rc::new(Storage::new(result_data)),
         shape: a.shape().to_vec(),
         strides: a.strides.clone(),
@@ -149,12 +153,13 @@ pub fn sub_ts(a: &Tensor, b: Scalar) -> Tensor {
             None
         },
         parents: if requires_grad {
-            vec![Rc::new(a.clone())]
+            vec![a.clone()]
         } else {
             Vec::new()
         },
         requires_grad,
     }
+    .into()
 }
 pub fn sub_st(a: Scalar, b: &Tensor) -> Tensor {
     let result_data = b
@@ -165,7 +170,7 @@ pub fn sub_st(a: Scalar, b: &Tensor) -> Tensor {
         .collect::<Vec<Scalar>>();
     let requires_grad = b.requires_grad;
 
-    Tensor {
+    InternalTensor {
         storage: Rc::new(Storage::new(result_data)),
         shape: b.shape().to_vec(),
         strides: b.strides.clone(),
@@ -177,12 +182,13 @@ pub fn sub_st(a: Scalar, b: &Tensor) -> Tensor {
             None
         },
         parents: if requires_grad {
-            vec![Rc::new(b.clone())]
+            vec![b.clone()]
         } else {
             Vec::new()
         },
         requires_grad,
     }
+    .into()
 }
 pub fn mul_ts(a: &Tensor, b: Scalar) -> Tensor {
     let mut result_data = Vec::with_capacity(a.shape().iter().product());
@@ -192,7 +198,7 @@ pub fn mul_ts(a: &Tensor, b: Scalar) -> Tensor {
 
     let requires_grad = a.requires_grad;
 
-    Tensor {
+    InternalTensor {
         storage: Rc::new(Storage::new(result_data)),
         shape: a.shape().to_vec(),
         strides: a.strides.clone(),
@@ -204,12 +210,13 @@ pub fn mul_ts(a: &Tensor, b: Scalar) -> Tensor {
             None
         },
         parents: if requires_grad {
-            vec![Rc::new(a.clone())]
+            vec![a.clone()]
         } else {
             Vec::new()
         },
         requires_grad,
     }
+    .into()
 }
 
 // element-wise multiplication
@@ -233,7 +240,7 @@ pub fn mul_tt_ews(a: &Tensor, b: &Tensor) -> Tensor {
 
         Tensor::increment_indices(&mut indices, &a.shape);
     }
-    Tensor {
+    InternalTensor {
         storage: Rc::new(Storage::new(result_data)),
         shape: a.shape.clone(),
         strides: a.strides.clone(),
@@ -248,12 +255,13 @@ pub fn mul_tt_ews(a: &Tensor, b: &Tensor) -> Tensor {
             None
         },
         parents: if a.requires_grad || b.requires_grad {
-            vec![Rc::new(a.clone()), Rc::new(b.clone())]
+            vec![a.clone(), b.clone()]
         } else {
             Vec::new()
         },
         requires_grad: a.requires_grad || b.requires_grad,
     }
+    .into()
 }
 
 pub fn div_ts(a: &Tensor, b: Scalar) -> Tensor {
@@ -264,7 +272,7 @@ pub fn div_ts(a: &Tensor, b: Scalar) -> Tensor {
 
     let requires_grad = a.requires_grad;
 
-    Tensor {
+    InternalTensor {
         storage: Rc::new(Storage::new(result_data)),
         shape: a.shape().to_vec(),
         strides: a.strides.clone(),
@@ -276,12 +284,13 @@ pub fn div_ts(a: &Tensor, b: Scalar) -> Tensor {
             None
         },
         parents: if requires_grad {
-            vec![Rc::new(a.clone())]
+            vec![a.clone()]
         } else {
             Vec::new()
         },
         requires_grad,
     }
+    .into()
 }
 
 pub fn div_st(a: Scalar, b: &Tensor) -> Tensor {
@@ -292,7 +301,7 @@ pub fn div_st(a: Scalar, b: &Tensor) -> Tensor {
 
     let requires_grad = b.requires_grad;
 
-    Tensor {
+    InternalTensor {
         storage: Rc::new(Storage::new(result_data)),
         shape: b.shape().to_vec(),
         strides: b.strides.clone(),
@@ -304,15 +313,16 @@ pub fn div_st(a: Scalar, b: &Tensor) -> Tensor {
             None
         },
         parents: if requires_grad {
-            vec![Rc::new(b.clone())]
+            vec![b.clone()]
         } else {
             Vec::new()
         },
         requires_grad,
     }
+    .into()
 }
 
-// element-wise multiplication
+// element-wise division
 pub fn div_tt_ews(a: &Tensor, b: &Tensor) -> Tensor {
     if a.is_scalar() {
         // TODO: handle grad
@@ -346,7 +356,7 @@ pub fn div_tt_ews(a: &Tensor, b: &Tensor) -> Tensor {
 
     let requires_grad = a.requires_grad || b.requires_grad;
 
-    Tensor {
+    InternalTensor {
         storage: Rc::new(Storage::new(result_data)),
         shape: a.shape().to_vec(),
         strides: a.strides.clone(),
@@ -358,10 +368,11 @@ pub fn div_tt_ews(a: &Tensor, b: &Tensor) -> Tensor {
             None
         },
         parents: if requires_grad {
-            vec![Rc::new((*a).clone()), Rc::new((*b).clone())]
+            vec![a.clone(), b.clone()]
         } else {
             Vec::new()
         },
         requires_grad,
     }
+    .into()
 }

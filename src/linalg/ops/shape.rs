@@ -1,6 +1,6 @@
 use crate::linalg::autograd::grad_fn::TensorTransposeFn;
-use crate::linalg::tensor_grad::Scalar;
 use crate::linalg::tensor_grad::Tensor;
+use crate::linalg::tensor_grad::{InternalTensor, Scalar};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -18,7 +18,7 @@ impl Tensor {
         new_strides[0] = self.strides[1];
         new_strides[1] = self.strides[0];
 
-        Tensor {
+        InternalTensor {
             storage: Rc::clone(&self.storage),
             shape: new_shape,
             strides: new_strides,
@@ -30,12 +30,13 @@ impl Tensor {
                 None
             },
             parents: if self.requires_grad {
-                vec![Rc::new(self.clone())]
+                vec![self.clone()]
             } else {
                 Vec::new()
             },
             requires_grad: self.requires_grad,
         }
+        .into()
     }
 
     /// Reshapes the tensor_old to the specified shape without changing the underlying data.
@@ -49,7 +50,7 @@ impl Tensor {
             shape.iter().product::<usize>(),
             "Total number of elements must remain the same when reshaping"
         );
-        Tensor {
+        InternalTensor {
             storage: Rc::clone(&self.storage),
             shape: shape.to_vec(),
             strides: Self::compute_strides(shape),
@@ -59,6 +60,7 @@ impl Tensor {
             parents: self.parents.clone(),
             requires_grad: self.requires_grad,
         }
+        .into()
     }
 
     /// Returns the underlying data of the tensor_old as a slice. If the tensor_old is not contiguous or has a non-zero offset, this will panic.
@@ -77,17 +79,12 @@ impl Tensor {
     /// If the storage is shared, it will create a unique copy before returning the mutable slice.
     ///
     /// Returns a mutable slice of the tensor_old's data.
-    pub fn as_mut_slice(&mut self) -> &mut [Scalar] {
-        assert!(
-            self.is_contiguous(),
-            "Tensor must be contiguous to get as mutable slice"
-        );
-        assert_eq!(
-            self.offset, 0,
-            "Tensor offset must be zero to get as mutable slice"
-        );
-        self.make_unique();
-        Rc::get_mut(&mut self.storage).unwrap().data.as_mut_slice()
+    /// Clones the tensor's storage if it's shared with other tensors (copy-on-write).
+    pub fn as_mut_slice(&mut self) -> &mut [f32] {
+        // Rc::make_mut clones if refcount > 1
+        let inner = Rc::make_mut(&mut self.0);
+        let storage = Rc::make_mut(&mut inner.storage);
+        &mut storage.data
     }
 
     /// Creates a tensor_old filled with ones with the specified shape.

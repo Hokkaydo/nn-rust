@@ -33,10 +33,10 @@ fn train(mnist: &MNIST, net: Option<NeuralNetwork>) -> NeuralNetwork {
         train_batches.len(),
         train_batches[0].images.shape()[0]
     );
-    let optimizer = if std::env::args().any(|arg| arg == "--adam") {
-        adam(0.1, 0.9, 0.999, 1e-8)
+    let optimizer: Box<dyn Optimizer> = if std::env::args().any(|arg| arg == "--adam") {
+        Box::from(Adam::new(0.1, 0.9, 0.999, 1e-8))
     } else if std::env::args().any(|arg| arg == "--grad") {
-        gradient_descent(0.1)
+        Box::from(SGD::new(0.1))
     } else {
         panic!("Please specify an optimizer: --adam or --grad");
     };

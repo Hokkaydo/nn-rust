@@ -1,4 +1,4 @@
-use crate::linalg::tensor_grad::{Storage, Tensor};
+use crate::linalg::tensor_grad::{InternalTensor, Storage, Tensor};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -59,7 +59,7 @@ impl Tensor {
             out[linear_idx] = a[linear_idx] + b[b_offset];
         }
 
-        Tensor {
+        InternalTensor {
             storage: Rc::new(Storage::new(out)),
             shape: self_shape.to_vec(),
             strides: self_strides.clone(),
@@ -69,5 +69,6 @@ impl Tensor {
             parents: Vec::new(),
             requires_grad: self.requires_grad || other.requires_grad,
         }
+        .into()
     }
 }

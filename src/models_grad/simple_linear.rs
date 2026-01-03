@@ -1,4 +1,5 @@
 use crate::helpers_grad::metrics::*;
+use crate::helpers_grad::optimizer::{Optimizer, SGD};
 use crate::helpers_grad::stopper::*;
 use crate::linalg::tensor_grad::{Scalar, Tensor};
 use crate::nn_grad::{activation::*, linear::Linear, models::NeuralNetwork};
@@ -32,6 +33,8 @@ pub fn some(
         epochs / 100, // patience
         0.0001,       // threshold
     );
+    let mut optimizer = SGD::new(0.01);
+
     for epoch in 0..epochs {
         let mut data: Vec<Scalar> = Vec::new();
         let mut shuffled_indices = (0..batch_size).collect::<Vec<usize>>();
@@ -44,8 +47,8 @@ pub fn some(
         let input = inputs.gather(0, &shuffled_indices) + noise_tensor;
         let target = targets.gather(0, &shuffled_indices);
         let output = net.forward(input.clone());
-        let loss = mse(&target, &output);
-        let loss_scalar = loss.as_scalar().unwrap_or(0.0);
+        let mut loss = mse(&target, &output);
+        let loss_scalar = loss.as_scalar();
         println!("Epoch {}: Loss = {}", epoch, loss_scalar);
         writeln!(file, "{},{}", epoch, loss_scalar).expect("Unable to write to file");
 
@@ -58,8 +61,8 @@ pub fn some(
             break;
         }
 
-        net.backward(output - target.clone());
-        // net.apply_gradients(&*gradient_descent(learning_rate));
+        loss.backward();
+        optimizer.step(net.parameters_mut());
     }
     for i in 0..batch_size {
         let input = inputs.slice(0, i, 1);

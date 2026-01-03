@@ -1,11 +1,13 @@
 use crate::linalg::autograd::grad_fn::GradFn;
 use std::cell::RefCell;
 use std::fmt::Debug;
+use std::ops::Deref;
 use std::rc::Rc;
 
 pub(crate) type Scalar = f32;
 
 /// Internal storage for tensor_old data. Allows multiple tensors to share the same data.
+#[derive(Clone)]
 pub(crate) struct Storage {
     pub(crate) data: Vec<Scalar>,
 }
@@ -17,43 +19,43 @@ impl Storage {
     }
 }
 
-pub struct Tensor {
-    pub(crate) storage: Rc<Storage>,
-    pub(crate) shape: Vec<usize>,
-    pub(crate) strides: Vec<usize>,
-    pub(crate) offset: usize,
+#[derive(Clone)]
+pub struct Tensor(pub(crate) Rc<InternalTensor>);
 
-    pub(crate) grad: RefCell<Option<Box<Tensor>>>,
-    pub(crate) grad_fn: Option<Rc<dyn GradFn>>,
-    pub(crate) parents: Vec<Rc<Tensor>>,
-    pub(crate) requires_grad: bool,
+impl Deref for Tensor {
+    type Target = Rc<InternalTensor>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<InternalTensor> for Tensor {
+    fn from(internal: InternalTensor) -> Self {
+        Tensor(Rc::new(internal))
+    }
 }
 
 impl Tensor {
     /// Creates a new Tensor with the given data and shape.
-    ///
-    /// The data length must match the product of the shape dimensions.
-    ///
-    /// * `data` - A vector containing the tensor_old data.
-    /// * `shape` - A slice representing the shape of the tensor_old.
     pub fn new(data: Vec<Scalar>, shape: &[usize]) -> Self {
-        assert_eq!(
-            data.len(),
-            shape.iter().product(),
-            "Data length does not match shape dimensions"
-        );
-        let strides = Self::compute_strides(shape);
-        let offset = 0;
-        let storage = Rc::new(Storage::new(data));
-        Tensor {
-            storage,
-            shape: shape.to_vec(),
-            strides,
-            offset,
-            grad: RefCell::new(None),
-            grad_fn: None,
-            parents: Vec::new(),
-            requires_grad: false,
+        InternalTensor::new(data, shape).into()
+    }
+
+    /// Computes the shape without dimensions of size one.
+    /// # Arguments
+    /// * `shape` - A slice representing the original shape.
+    /// # Returns
+    /// A vector representing the reduced shape.
+    pub fn reduce_shape(shape: &[usize]) -> Vec<usize> {
+        let reduced_shape = shape
+            .iter()
+            .cloned()
+            .filter(|&dim| dim != 1)
+            .collect::<Vec<usize>>();
+        if reduced_shape.is_empty() {
+            vec![1]
+        } else {
+            reduced_shape
         }
     }
 
@@ -69,14 +71,124 @@ impl Tensor {
         strides
     }
 
+    /// Increments multidimensional indices for iterating over a stride tensor.
+    /// * `indices` - A mutable slice of indices to increment.
+    /// * `shape` - A slice representing the shape of the tensor.
+    pub fn increment_indices(indices: &mut [usize], shape: &[usize]) {
+        for i in (0..indices.len()).rev() {
+            indices[i] += 1;
+            if indices[i] < shape[i] {
+                break;
+            }
+            indices[i] = 0;
+        }
+    }
+
+    /// Ensures this tensor has a unique (non-shared) storage.
+    /// Clones the storage if it's shared with other tensors.
+    pub fn make_unique(&mut self) {
+        // Clone inner if shared
+        let inner = Rc::make_mut(&mut self.0);
+
+        // Clone storage if shared
+        if Rc::strong_count(&inner.storage) > 1 {
+            inner.storage = Rc::new(Storage {
+                data: inner.storage.data.clone(),
+            });
+        }
+    }
+
+    /// Sets the value at the specified multidimensional indices.
+    /// * `indices` - A slice of indices for each dimension of the tensor_old.
+    /// * `value` - The value to set at the specified indices.
+    pub fn set(&mut self, indices: &[usize], value: Scalar) {
+        let inner = Rc::make_mut(&mut self.0);
+        let index = inner.compute_flat_index(indices);
+        let storage = Rc::make_mut(&mut inner.storage);
+        storage.data[index] = value;
+    }
+}
+
+pub struct InternalTensor {
+    pub(crate) storage: Rc<Storage>,
+    pub(crate) shape: Vec<usize>,
+    pub(crate) strides: Vec<usize>,
+    pub(crate) offset: usize,
+
+    pub(crate) grad: RefCell<Option<Tensor>>,
+    pub(crate) grad_fn: Option<Rc<dyn GradFn>>,
+    pub(crate) parents: Vec<Tensor>,
+    pub(crate) requires_grad: bool,
+}
+
+impl InternalTensor {
+    /// Creates a new Tensor with the given data and shape.
+    ///
+    /// The data length must match the product of the shape dimensions.
+    ///
+    /// * `data` - A vector containing the tensor_old data.
+    /// * `shape` - A slice representing the shape of the tensor_old.
+    pub fn new(data: Vec<Scalar>, shape: &[usize]) -> Self {
+        assert_eq!(
+            data.len(),
+            shape.iter().product(),
+            "Data length does not match shape dimensions"
+        );
+        let strides = Tensor::compute_strides(shape);
+        let offset = 0;
+        let storage = Rc::new(Storage::new(data));
+        InternalTensor {
+            storage,
+            shape: shape.to_vec(),
+            strides,
+            offset,
+            grad: RefCell::new(None),
+            grad_fn: None,
+            parents: Vec::new(),
+            requires_grad: false,
+        }
+    }
+
     /// Checks if the tensor_old is stored in contiguous memory.
     /// Returns true if the tensor_old is contiguous, false otherwise.
     pub(crate) fn is_contiguous(&self) -> bool {
         if self.offset != 0 {
             return false;
         }
-        let expected_strides = Self::compute_strides(&self.shape);
+        let expected_strides = Tensor::compute_strides(&self.shape);
         self.strides == expected_strides
+    }
+
+    /// Returns the shape of the tensor_old as a slice.
+    pub fn shape(&self) -> &[usize] {
+        &self.shape
+    }
+
+    /// Gets the value at the specified multi-dimensional indices.
+    /// * `indices` - A slice of indices for each dimension of the tensor_old.
+    ///
+    /// Returns the value at the specified indices.
+    pub fn get(&self, indices: &[usize]) -> Scalar {
+        self.storage.data[self.compute_flat_index(indices)]
+    }
+
+    /// Checks if the tensor_old is a scalar (i.e., has shape [1]).
+    /// # Returns
+    /// True if the tensor_old is a scalar, false otherwise.
+    pub fn is_scalar(&self) -> bool {
+        self.shape.iter().product::<usize>() == 1
+    }
+
+    /// Returns the total number of elements in the tensor_old.
+    pub fn numel(&self) -> usize {
+        self.shape.iter().product()
+    }
+
+    pub fn as_scalar(&self) -> Scalar {
+        if !self.is_scalar() {
+            panic!("Tensor is not a scalar")
+        }
+        self.storage.data[self.offset]
     }
 
     /// Computes the flat index in the storage for the given multidimensional indices.
@@ -101,89 +213,11 @@ impl Tensor {
         }
         flat_index
     }
-
-    /// Returns the shape of the tensor_old as a slice.
-    pub fn shape(&self) -> &[usize] {
-        &self.shape
-    }
-
-    /// Gets the value at the specified multi-dimensional indices.
-    /// * `indices` - A slice of indices for each dimension of the tensor_old.
-    ///
-    /// Returns the value at the specified indices.
-    pub fn get(&self, indices: &[usize]) -> Scalar {
-        self.storage.data[self.compute_flat_index(indices)]
-    }
-
-    /// Sets the value at the specified multi-dimensional indices.
-    /// * `indices` - A slice of indices for each dimension of the tensor_old.
-    /// * `value` - The value to set at the specified indices.
-    pub fn set(&mut self, indices: &[usize], value: Scalar) {
-        let index = self.compute_flat_index(indices);
-        Rc::get_mut(&mut self.storage).unwrap().data[index] = value;
-    }
-
-    /// Ensures that the tensor_old has a unique copy of the storage. If the storage is shared (reference count > 1), it creates a new copy of the data
-    pub(crate) fn make_unique(&mut self) {
-        if Rc::strong_count(&self.storage) > 1 {
-            self.storage = Rc::new(Storage::new(self.storage.data.clone()));
-        }
-    }
-
-    /// Increments multi-dimensional indices for iterating over a stride tensor.
-    /// * `indices` - A mutable slice of indices to increment.
-    /// * `shape` - A slice representing the shape of the tensor.
-    pub fn increment_indices(indices: &mut [usize], shape: &[usize]) {
-        for i in (0..indices.len()).rev() {
-            indices[i] += 1;
-            if indices[i] < shape[i] {
-                break;
-            }
-            indices[i] = 0;
-        }
-    }
-
-    /// Checks if the tensor_old is a scalar (i.e., has shape [1]).
-    /// # Returns
-    /// True if the tensor_old is a scalar, false otherwise.
-    pub fn is_scalar(&self) -> bool {
-        self.shape.iter().product::<usize>() == 1
-    }
-
-    /// Computes the shape without dimensions of size one.
-    /// # Arguments
-    /// * `shape` - A slice representing the original shape.
-    /// # Returns
-    /// A vector representing the reduced shape.
-    pub fn reduce_shape(shape: &[usize]) -> Vec<usize> {
-        let reduced_shape = shape
-            .iter()
-            .cloned()
-            .filter(|&dim| dim != 1)
-            .collect::<Vec<usize>>();
-        if reduced_shape.is_empty() {
-            vec![1]
-        } else {
-            reduced_shape
-        }
-    }
-
-    /// Returns the total number of elements in the tensor_old.
-    pub fn numel(&self) -> usize {
-        self.shape.iter().product()
-    }
-
-    pub fn as_scalar(&self) -> Option<Scalar> {
-        if self.is_scalar() {
-            return Some(self.storage.data[self.offset]);
-        }
-        None
-    }
 }
 
-impl Clone for Tensor {
+impl Clone for InternalTensor {
     fn clone(&self) -> Self {
-        Tensor {
+        InternalTensor {
             storage: Rc::clone(&self.storage),
             shape: self.shape.clone(),
             strides: self.strides.clone(),

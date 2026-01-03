@@ -22,15 +22,6 @@ fn test_new_invalid_shape() {
 
 #[cfg(test)]
 #[test]
-fn test_zero_grad() {
-    let data = vec![1.0, 2.0, 3.0, 4.0];
-    let tensor = Tensor::new(data, &[2, 2]);
-    tensor.zero_grad();
-    assert!(tensor.grad().is_none());
-}
-
-#[cfg(test)]
-#[test]
 fn test_reshape() {
     let data = vec![1.0, 2.0, 3.0, 4.0];
     let tensor = Tensor::new(data.clone(), &[2, 2]);

@@ -1,4 +1,4 @@
-use crate::linalg::tensor_grad::{Scalar, Storage, Tensor};
+use crate::linalg::tensor_grad::{InternalTensor, Scalar, Storage, Tensor};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -15,7 +15,7 @@ impl Tensor {
 
         let requires_grad = self.requires_grad;
 
-        Tensor {
+        InternalTensor {
             storage: Rc::new(Storage::new(result_data)),
             shape: self.shape.clone(),
             strides: self.strides.clone(),
@@ -23,12 +23,13 @@ impl Tensor {
             grad: RefCell::new(None),
             grad_fn: None, // Gradient function for sigmoid not implemented
             parents: if requires_grad {
-                vec![Rc::new(self.clone())]
+                vec![self.clone()]
             } else {
                 Vec::new()
             },
             requires_grad,
         }
+        .into()
     }
 
     /// Computes the softmax of the tensor
@@ -64,7 +65,7 @@ impl Tensor {
 
         let requires_grad = self.requires_grad;
 
-        Tensor {
+        InternalTensor {
             storage: Rc::new(Storage::new(result_data)),
             shape: self.shape.clone(),
             strides: self.strides.clone(),
@@ -72,12 +73,13 @@ impl Tensor {
             grad: RefCell::new(None),
             grad_fn: None, // Gradient function for log_softmax not implemented
             parents: if requires_grad {
-                vec![Rc::new(self.clone())]
+                vec![self.clone()]
             } else {
                 Vec::new()
             },
             requires_grad,
         }
+        .into()
     }
 
     pub fn relu(&self) -> Tensor {
@@ -89,7 +91,7 @@ impl Tensor {
 
         let requires_grad = self.requires_grad;
 
-        Tensor {
+        InternalTensor {
             storage: Rc::new(Storage::new(result_data)),
             shape: self.shape.clone(),
             strides: self.strides.clone(),
@@ -97,11 +99,12 @@ impl Tensor {
             grad: RefCell::new(None),
             grad_fn: None, // Gradient function for relu not implemented
             parents: if requires_grad {
-                vec![Rc::new(self.clone())]
+                vec![self.clone()]
             } else {
                 Vec::new()
             },
             requires_grad,
         }
+        .into()
     }
 }

@@ -24,8 +24,8 @@ impl Linear {
             .collect();
         let bias: Vec<Scalar> = rand::rng().sample_iter(range).take(n_outputs).collect();
 
-        let weights = Tensor::new(weights, &[n_inputs, n_outputs]);
-        let bias = Tensor::new(bias, &[1, n_outputs]);
+        let weights = Tensor::with_grad(weights, &[n_inputs, n_outputs]);
+        let bias = Tensor::with_grad(bias, &[1, n_outputs]);
 
         Linear { weights, bias }
     }
@@ -95,8 +95,8 @@ impl Dumpable for Linear {
         file.read_exact(bytemuck::cast_slice_mut(&mut bias_data))
             .expect("Unable to read bias from file");
 
-        let weights = Tensor::new(weights_data, &[weights_shape.0, weights_shape.1]);
-        let bias = Tensor::new(bias_data, &[bias_shape.0, bias_shape.1]);
+        let weights = Tensor::with_grad(weights_data, &[weights_shape.0, weights_shape.1]);
+        let bias = Tensor::with_grad(bias_data, &[bias_shape.0, bias_shape.1]);
 
         Box::new(Linear { weights, bias })
     }

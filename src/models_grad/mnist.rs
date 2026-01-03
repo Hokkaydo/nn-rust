@@ -1,4 +1,5 @@
 use crate::helpers_grad::metrics::mse;
+use crate::helpers_grad::optimizer::Optimizer;
 use crate::linalg::tensor_grad::{Scalar, Tensor};
 use crate::nn_grad::activation::{ReLU, Sigmoid};
 use crate::nn_grad::linear::Linear;
@@ -141,7 +142,7 @@ impl MNIST {
         &self,
         batches: &mut Vec<MNISTBatch>,
         epochs: usize,
-        update_fn: impl Fn(Vec<&Tensor>) -> Vec<Tensor>,
+        optimizer: Box<dyn Optimizer>,
     ) -> NeuralNetwork {
         let input_size = 28 * 28; // 28x28 pixels
         let output_size = 10; // 10 classes for digits 0-9
@@ -153,7 +154,7 @@ impl MNIST {
             Box::new(Sigmoid::default()),
         ]);
 
-        self.train(batches, epochs, update_fn, &mut net);
+        self.train(batches, epochs, optimizer, &mut net);
 
         net
     }
@@ -162,7 +163,7 @@ impl MNIST {
         &self,
         batches: &mut Vec<MNISTBatch>,
         epochs: usize,
-        update_fn: impl Fn(Vec<&Tensor>) -> Vec<Tensor>,
+        optimizer: Box<dyn Optimizer>,
         net: &mut NeuralNetwork,
     ) {
         for epoch in 0..epochs {
@@ -170,9 +171,10 @@ impl MNIST {
             for (i, batch) in batches.iter().enumerate() {
                 let output = net.forward(batch.images.clone());
                 let loss = mse(&batch.labels, &output);
-                let loss_scalar = loss.as_scalar().unwrap_or(0.0);
+                let loss_scalar = loss.as_scalar();
                 println!("Epoch {epoch}: Batch {i} Loss = {loss_scalar}");
-                net.backward(output - batch.labels.clone());
+                loss.backward();
+                // net.backward(output - batch.labels.clone());
             }
             // net.apply_gradients(&update_fn);
         }

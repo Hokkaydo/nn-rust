@@ -1,4 +1,4 @@
-use crate::linalg::tensor_grad::{Scalar, Storage, Tensor};
+use crate::linalg::tensor_grad::{InternalTensor, Scalar, Storage, Tensor};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -28,7 +28,7 @@ impl Tensor {
         }
         let strides = Tensor::compute_strides(&reduced_shape);
 
-        Tensor {
+        InternalTensor {
             storage: Rc::new(Storage::new(result_data)),
             shape: reduced_shape,
             strides,
@@ -38,6 +38,7 @@ impl Tensor {
             parents: vec![],
             requires_grad: self.requires_grad,
         }
+        .into()
     }
 
     pub fn mean_scalar(&self) -> Tensor {
@@ -45,7 +46,7 @@ impl Tensor {
         let sum: Scalar = self.storage.data.iter().cloned().sum();
         let mean = sum / (total_elements as Scalar);
 
-        Tensor {
+        InternalTensor {
             storage: Rc::new(Storage::new(vec![mean])),
             shape: vec![1],
             strides: vec![1],
@@ -55,6 +56,7 @@ impl Tensor {
             parents: vec![],
             requires_grad: self.requires_grad,
         }
+        .into()
     }
 
     /// Slices the tensor along the specified axis
@@ -84,7 +86,7 @@ impl Tensor {
 
         let strides = Tensor::compute_strides(&new_shape);
 
-        Tensor {
+        InternalTensor {
             storage: Rc::new(Storage::new(result_data)),
             shape: new_shape,
             strides,
@@ -94,6 +96,7 @@ impl Tensor {
             parents: vec![],
             requires_grad: self.requires_grad,
         }
+        .into()
     }
 
     /// Gathers elements from the tensor along specified axis using provided indices
@@ -149,7 +152,7 @@ impl Tensor {
             }
         }
 
-        Tensor {
+        InternalTensor {
             storage: Rc::new(Storage::new(out_data)),
             shape: out_shape,
             strides: out_strides,
@@ -159,6 +162,7 @@ impl Tensor {
             parents: vec![],
             requires_grad: self.requires_grad,
         }
+        .into()
     }
 
     /// Computes the indices of the maximum value in the tensor
@@ -210,7 +214,7 @@ impl Tensor {
             .iter()
             .cloned()
             .fold(Scalar::MIN, Scalar::max);
-        Tensor {
+        InternalTensor {
             storage: Rc::new(Storage::new(vec![max_value])),
             shape: vec![1],
             strides: vec![1],
@@ -220,6 +224,7 @@ impl Tensor {
             parents: vec![],
             requires_grad: self.requires_grad,
         }
+        .into()
     }
 
     /// Computes the sum of all elements in the tensor
@@ -227,7 +232,8 @@ impl Tensor {
     /// A tensor containing the sum of all elements
     pub fn sum(&self) -> Tensor {
         let sum_value: Scalar = self.storage.data.iter().cloned().sum();
-        Tensor {
+
+        InternalTensor {
             storage: Rc::new(Storage::new(vec![sum_value])),
             shape: vec![1],
             strides: vec![1],
@@ -237,6 +243,7 @@ impl Tensor {
             parents: vec![],
             requires_grad: self.requires_grad,
         }
+        .into()
     }
 
     pub fn sum_axis(&self, axis: usize) -> Tensor {
@@ -260,7 +267,7 @@ impl Tensor {
         }
         let strides = Tensor::compute_strides(&reduced_shape);
 
-        Tensor {
+        InternalTensor {
             storage: Rc::new(Storage::new(result_data)),
             shape: reduced_shape,
             strides,
@@ -270,5 +277,6 @@ impl Tensor {
             parents: vec![],
             requires_grad: self.requires_grad,
         }
+        .into()
     }
 }

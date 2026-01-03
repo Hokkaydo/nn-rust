@@ -1,5 +1,5 @@
 use crate::linalg::autograd::grad_fn::{TensorNegTensorFn, TensorPowFn};
-use crate::linalg::tensor_grad::{Scalar, Storage, Tensor};
+use crate::linalg::tensor_grad::{InternalTensor, Scalar, Storage, Tensor};
 use std::cell::RefCell;
 use std::ops::Neg;
 use std::rc::Rc;
@@ -7,15 +7,18 @@ use std::rc::Rc;
 impl Neg for &Tensor {
     type Output = Tensor;
 
-    fn neg(self) -> Tensor {
-        let mut result_data = Vec::with_capacity(self.shape.iter().product());
-        for i in 0..self.storage.data.len() {
-            result_data.push(-self.storage.data[i].clone());
-        }
+    fn neg(self) -> Self::Output {
+        let result_data = self
+            .storage
+            .data
+            .iter()
+            .copied()
+            .map(|x| -x)
+            .collect::<Vec<Scalar>>();
 
         let requires_grad = self.requires_grad;
 
-        Tensor {
+        InternalTensor {
             storage: Rc::new(Storage::new(result_data)),
             shape: self.shape.clone(),
             strides: self.strides.clone(),
@@ -27,12 +30,13 @@ impl Neg for &Tensor {
                 None
             },
             parents: if requires_grad {
-                vec![Rc::new(self.clone())]
+                vec![self.clone()]
             } else {
                 Vec::new()
             },
             requires_grad,
         }
+        .into()
     }
 }
 
@@ -58,7 +62,7 @@ impl Tensor {
 
         let requires_grad = self.requires_grad;
 
-        Tensor {
+        InternalTensor {
             storage: Rc::new(Storage::new(result_data)),
             shape: self.shape.clone(),
             strides: self.strides.clone(),
@@ -70,12 +74,13 @@ impl Tensor {
                 None
             },
             parents: if requires_grad {
-                vec![Rc::new(self.clone())]
+                vec![self.clone()]
             } else {
                 Vec::new()
             },
             requires_grad,
         }
+        .into()
     }
 
     /// Computes the square of the tensor
@@ -103,7 +108,7 @@ impl Tensor {
 
         let requires_grad = self.requires_grad;
 
-        Tensor {
+        InternalTensor {
             storage: Rc::new(Storage::new(result_data)),
             shape: self.shape.clone(),
             strides: self.strides.clone(),
@@ -111,12 +116,13 @@ impl Tensor {
             grad: RefCell::new(None),
             grad_fn: None, // Gradient function for abs not implemented
             parents: if requires_grad {
-                vec![Rc::new(self.clone())]
+                vec![self.clone()]
             } else {
                 Vec::new()
             },
             requires_grad,
         }
+        .into()
     }
 
     /// Clamps the tensor values between min and max
@@ -141,7 +147,7 @@ impl Tensor {
 
         let requires_grad = self.requires_grad;
 
-        Tensor {
+        InternalTensor {
             storage: Rc::new(Storage::new(result_data)),
             shape: self.shape.clone(),
             strides: self.strides.clone(),
@@ -149,12 +155,13 @@ impl Tensor {
             grad: RefCell::new(None),
             grad_fn: None, // Gradient function for clamp not implemented
             parents: if requires_grad {
-                vec![Rc::new(self.clone())]
+                vec![self.clone()]
             } else {
                 Vec::new()
             },
             requires_grad,
         }
+        .into()
     }
 
     /// Computes the natural logarithm of the tensor
@@ -168,7 +175,7 @@ impl Tensor {
 
         let requires_grad = self.requires_grad;
 
-        Tensor {
+        InternalTensor {
             storage: Rc::new(Storage::new(result_data)),
             shape: self.shape.clone(),
             strides: self.strides.clone(),
@@ -176,12 +183,13 @@ impl Tensor {
             grad: RefCell::new(None),
             grad_fn: None, // Gradient function for log not implemented
             parents: if requires_grad {
-                vec![Rc::new(self.clone())]
+                vec![self.clone()]
             } else {
                 Vec::new()
             },
             requires_grad,
         }
+        .into()
     }
 
     pub fn exp(&self) -> Tensor {
@@ -192,7 +200,7 @@ impl Tensor {
 
         let requires_grad = self.requires_grad;
 
-        Tensor {
+        InternalTensor {
             storage: Rc::new(Storage::new(result_data)),
             shape: self.shape.clone(),
             strides: self.strides.clone(),
@@ -200,11 +208,12 @@ impl Tensor {
             grad: RefCell::new(None),
             grad_fn: None, // Gradient function for exp not implemented
             parents: if requires_grad {
-                vec![Rc::new(self.clone())]
+                vec![self.clone()]
             } else {
                 Vec::new()
             },
             requires_grad,
         }
+        .into()
     }
 }

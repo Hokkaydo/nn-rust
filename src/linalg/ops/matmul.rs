@@ -1,5 +1,5 @@
 use crate::linalg::autograd::grad_fn::TensorMatMulTensorFn;
-use crate::linalg::tensor_grad::{Storage, Tensor};
+use crate::linalg::tensor_grad::{InternalTensor, Storage, Tensor};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -43,7 +43,7 @@ impl Tensor {
 
         let requires_grad = self.requires_grad || other.requires_grad;
 
-        Tensor {
+        InternalTensor {
             storage: Rc::new(Storage::new(result_data)),
             shape: vec![m, n],
             strides: vec![n, 1],
@@ -58,11 +58,12 @@ impl Tensor {
                 None
             },
             parents: if requires_grad {
-                vec![Rc::new(self.clone()), Rc::new(other.clone())]
+                vec![self.clone(), other.clone()]
             } else {
                 Vec::new()
             },
             requires_grad,
         }
+        .into()
     }
 }

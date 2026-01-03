@@ -26,12 +26,12 @@ impl NeuralNetwork {
         output
     }
 
-    pub fn backward(&mut self, grad_output: Tensor) -> Tensor {
-        let mut grad = grad_output;
-        for layer in self.layers.iter_mut().rev() {
-            // grad = layer.backward(&mut self.memory, &grad);
+    pub fn parameters_mut(&mut self) -> Vec<&mut Tensor> {
+        let mut params = Vec::new();
+        for layer in &mut self.layers {
+            params.extend(layer.parameters_mut());
         }
-        grad
+        params
     }
 
     pub fn dump_memory(&self, path: &str) {

@@ -1,48 +1,83 @@
 use crate::linalg::tensor_grad::{Scalar, Tensor};
 
-pub fn gradient_descent(learning_rate: Scalar) -> Box<dyn Fn(Vec<&Tensor>) -> Vec<Tensor>> {
-    Box::new(move |values: Vec<&Tensor>| {
-        let val = values[0];
-        let grad = values[1];
-        let out = val - &(grad * learning_rate);
-        vec![out]
-    })
+pub trait Optimizer {
+    fn step(&mut self, params: Vec<&mut Tensor>);
+    fn reset(&mut self) {}
 }
 
-pub fn adam(
+pub struct SGD {
+    learning_rate: Scalar,
+}
+
+impl SGD {
+    pub fn new(learning_rate: Scalar) -> Self {
+        Self { learning_rate }
+    }
+}
+
+impl Optimizer for SGD {
+    fn step(&mut self, params: Vec<&mut Tensor>) {
+        for param in params {
+            if let Some(grad) = param.grad() {
+                *param = &*param - &(grad * self.learning_rate);
+            }
+        }
+    }
+    fn reset(&mut self) {}
+}
+
+pub struct Adam {
     learning_rate: Scalar,
     beta1: Scalar,
     beta2: Scalar,
     epsilon: Scalar,
-) -> Box<dyn Fn(Vec<&Tensor>) -> Vec<Tensor>> {
-    Box::new(move |values: Vec<&Tensor>| {
-        let val = values[0];
-        let grad = values[1];
+    mean_vectors: Vec<Tensor>,
+    variance_vectors: Vec<Tensor>,
+    time_step: usize,
+}
 
-        let m = if values.len() > 2 {
-            values[2].clone()
-        } else {
-            Tensor::new(vec![0.0; val.storage.data.len()], val.shape())
-        };
-        let v = if values.len() > 3 {
-            values[3].clone()
-        } else {
-            Tensor::new(vec![0.0; val.storage.data.len()], val.shape())
-        };
+impl Adam {
+    pub fn new(learning_rate: Scalar, beta1: Scalar, beta2: Scalar, epsilon: Scalar) -> Self {
+        Self {
+            learning_rate,
+            beta1,
+            beta2,
+            epsilon,
+            mean_vectors: Vec::new(),
+            variance_vectors: Vec::new(),
+            time_step: 0,
+        }
+    }
+}
 
-        let t = if values.len() > 4 {
-            values[4]
-        } else {
-            &Tensor::new(vec![1.0], &[1])
-        };
+impl Optimizer for Adam {
+    fn step(&mut self, params: Vec<&mut Tensor>) {
+        let mut i = 0;
+        for param in params {
+            if let Some(grad) = param.grad() {
+                if i >= self.mean_vectors.len() {
+                    self.mean_vectors.push(Tensor::new(
+                        vec![0.0; param.storage.data.len()],
+                        param.shape(),
+                    ));
+                    self.variance_vectors.push(Tensor::new(
+                        vec![0.0; param.storage.data.len()],
+                        param.shape(),
+                    ));
+                }
 
-        let m = &m * beta1 + grad * (1.0 - beta1);
-        let v = &v * beta2 + grad.square() * (1.0 - beta2);
+                let m = &self.mean_vectors[i] * self.beta1 + &grad * (1.0 - self.beta1);
+                let v = &self.variance_vectors[i] * self.beta2 + grad.square() * (1.0 - self.beta2);
 
-        let m_hat = &m / (1.0 - beta1.powi(t.storage.data[0] as i32));
-        let v_hat = &v / (1.0 - beta2.powi(t.storage.data[0] as i32));
+                let m_hat = &m / (1.0 - self.beta1.powi((self.time_step + 1) as i32));
+                let v_hat = &v / (1.0 - self.beta2.powi((self.time_step + 1) as i32));
 
-        let out = val - &(&m_hat / &(&v_hat.sqrt() + epsilon) * learning_rate);
-        vec![out, m, v, t + 1.0]
-    })
+                *param = &*param - &(&m_hat / &(&v_hat.sqrt() + self.epsilon) * self.learning_rate);
+                self.mean_vectors[i] = m;
+                self.variance_vectors[i] = v;
+                self.time_step += 1;
+                i += 1;
+            }
+        }
+    }
 }
