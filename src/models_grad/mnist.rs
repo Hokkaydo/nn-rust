@@ -163,7 +163,7 @@ impl MNIST {
         &self,
         batches: &mut Vec<MNISTBatch>,
         epochs: usize,
-        optimizer: Box<dyn Optimizer>,
+        mut optimizer: Box<dyn Optimizer>,
         net: &mut NeuralNetwork,
     ) {
         for epoch in 0..epochs {
@@ -174,9 +174,8 @@ impl MNIST {
                 let loss_scalar = loss.as_scalar();
                 println!("Epoch {epoch}: Batch {i} Loss = {loss_scalar}");
                 loss.backward();
-                // net.backward(output - batch.labels.clone());
             }
-            // net.apply_gradients(&update_fn);
+            optimizer.step(net.parameters_mut());
         }
     }
 
