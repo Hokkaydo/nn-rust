@@ -119,13 +119,13 @@ impl MNIST {
 
             let labels: Vec<Scalar> = indices
                 .iter()
-                .flat_map(|&idx| Self::label_to_one_hot(labels[idx as usize]))
+                .flat_map(|&idx| Self::label_to_one_hot(labels[idx]))
                 .collect();
 
             let images_tensor = if flat {
-                Tensor::new(images, &[batch_size, 28 * 28])
+                Tensor::with_grad(images, &[batch_size, 28 * 28])
             } else {
-                Tensor::new(images, &[batch_size, 28, 28])
+                Tensor::with_grad(images, &[batch_size, 28, 28])
             };
 
             let labels_tensor = Tensor::new(labels, &[batch_size, 10]);
@@ -168,12 +168,20 @@ impl MNIST {
     ) {
         for epoch in 0..epochs {
             batches.shuffle(&mut rand::rng());
+            let test_accuracy = self.test_model(batches, net);
+            println!("Initial test accuracy: {}", test_accuracy);
             for (i, batch) in batches.iter().enumerate() {
                 let output = net.forward(batch.images.clone());
                 let loss = mse(&batch.labels, &output);
                 let loss_scalar = loss.as_scalar();
                 println!("Epoch {epoch}: Batch {i} Loss = {loss_scalar}");
-                loss.backward();
+                loss.backward_with_options(i % 10 == 0);
+                if i > 0 && i % 10 == 0 {
+                    optimizer.step(net.parameters_mut());
+                    optimizer.reset();
+                    let test_accuracy = self.test_model(batches, net);
+                    println!("Test Accuracy after batch {i}: {}", test_accuracy);
+                }
             }
             optimizer.step(net.parameters_mut());
         }

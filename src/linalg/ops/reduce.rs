@@ -1,4 +1,6 @@
+use crate::linalg::autograd::grad_fn::reduce::{MeanGradFn, SumAxisGradFn};
 use crate::linalg::tensor_grad::{InternalTensor, Scalar, Storage, Tensor};
+use crate::not_implemented_grad_fn;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -34,8 +36,16 @@ impl Tensor {
             strides,
             offset: 0,
             grad: RefCell::new(None),
-            grad_fn: None, // Gradient function would need to be implemented
-            parents: vec![],
+            grad_fn: if self.requires_grad {
+                Some(Rc::new(MeanGradFn::new(axes.to_vec(), self.shape.clone())))
+            } else {
+                None
+            },
+            parents: if self.requires_grad {
+                vec![self.clone()]
+            } else {
+                vec![]
+            },
             requires_grad: self.requires_grad,
         }
         .into()
@@ -52,8 +62,19 @@ impl Tensor {
             strides: vec![1],
             offset: 0,
             grad: RefCell::new(None),
-            grad_fn: None, // Gradient function would need to be implemented
-            parents: vec![],
+            grad_fn: if self.requires_grad {
+                Some(Rc::new(MeanGradFn::new(
+                    (0..self.shape.len()).collect(),
+                    self.shape.clone(),
+                )))
+            } else {
+                None
+            },
+            parents: if self.requires_grad {
+                vec![self.clone()]
+            } else {
+                vec![]
+            },
             requires_grad: self.requires_grad,
         }
         .into()
@@ -92,7 +113,7 @@ impl Tensor {
             strides,
             offset: 0,
             grad: RefCell::new(None),
-            grad_fn: None, // Gradient function would need to be implemented
+            grad_fn: not_implemented_grad_fn!("Slice"),
             parents: vec![],
             requires_grad: self.requires_grad,
         }
@@ -158,7 +179,7 @@ impl Tensor {
             strides: out_strides,
             offset: 0,
             grad: RefCell::new(None),
-            grad_fn: None,
+            grad_fn: not_implemented_grad_fn!("Gather"),
             parents: vec![],
             requires_grad: self.requires_grad,
         }
@@ -220,7 +241,7 @@ impl Tensor {
             strides: vec![1],
             offset: 0,
             grad: RefCell::new(None),
-            grad_fn: None, // Gradient function would need to be implemented
+            grad_fn: not_implemented_grad_fn!("argmax"),
             parents: vec![],
             requires_grad: self.requires_grad,
         }
@@ -239,7 +260,7 @@ impl Tensor {
             strides: vec![1],
             offset: 0,
             grad: RefCell::new(None),
-            grad_fn: None, // Gradient function would need to be implemented
+            grad_fn: not_implemented_grad_fn!("sum"),
             parents: vec![],
             requires_grad: self.requires_grad,
         }
@@ -273,8 +294,16 @@ impl Tensor {
             strides,
             offset: 0,
             grad: RefCell::new(None),
-            grad_fn: None, // Gradient function would need to be implemented
-            parents: vec![],
+            grad_fn: if self.requires_grad {
+                Some(Rc::new(SumAxisGradFn))
+            } else {
+                None
+            },
+            parents: if self.requires_grad {
+                vec![self.clone()]
+            } else {
+                vec![]
+            },
             requires_grad: self.requires_grad,
         }
         .into()

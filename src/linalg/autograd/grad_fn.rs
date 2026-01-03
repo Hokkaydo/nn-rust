@@ -1,74 +1,32 @@
-use crate::linalg::tensor_grad::{Scalar, Tensor};
-use std::rc::Rc;
+pub(crate) mod activation;
+pub(crate) mod binary;
+pub(crate) mod matmul;
+pub(crate) mod reduce;
+pub(crate) mod shape;
+pub(crate) mod unary;
+
+use crate::linalg::tensor_grad::Tensor;
 
 pub(crate) trait GradFn {
     /// Applies the gradient function to the given gradient output tensor_old and returns the gradients for each parent tensor_old.
-    fn apply(&self, grad_output: &Tensor) -> Vec<Tensor>;
-}
-
-pub(crate) struct TensorAddTensorFn;
-pub(crate) struct TensorSubTensorFn;
-pub(crate) struct TensorNegTensorFn;
-pub(crate) struct TensorTransposeFn;
-pub(crate) struct TensorPowFn {
-    pub exponent: Scalar,
-}
-pub(crate) struct TensorMatMulTensorFn {
-    pub lhs: Rc<Tensor>,
-    pub rhs: Rc<Tensor>,
-}
-// Element-wise multiplication gradient function
-pub(crate) struct TensorEWMulTensorFn {
-    pub lhs: Rc<Tensor>,
-    pub rhs: Rc<Tensor>,
-}
-
-impl GradFn for TensorAddTensorFn {
-    fn apply(&self, grad_output: &Tensor) -> Vec<Tensor> {
-        vec![grad_output.clone(), grad_output.clone()]
+    fn apply(&self, output: &Tensor, grad_output: &Tensor) -> Vec<Tensor>;
+    fn type_name(&self) -> &'static str {
+        std::any::type_name::<Self>()
     }
 }
 
-impl GradFn for TensorSubTensorFn {
-    fn apply(&self, grad_output: &Tensor) -> Vec<Tensor> {
-        vec![grad_output.clone(), -grad_output.clone()]
+pub(crate) struct NotImplementedGradFn(pub(crate) &'static str);
+
+impl GradFn for NotImplementedGradFn {
+    fn apply(&self, _output: &Tensor, _grad_output: &Tensor) -> Vec<Tensor> {
+        panic!("{}'s gradient is not defined", self.0.to_string());
     }
 }
-impl GradFn for TensorNegTensorFn {
-    fn apply(&self, grad_output: &Tensor) -> Vec<Tensor> {
-        vec![-grad_output.clone()]
-    }
-}
-
-impl GradFn for TensorTransposeFn {
-    fn apply(&self, grad_output: &Tensor) -> Vec<Tensor> {
-        let new_shape = grad_output.shape.clone();
-        vec![grad_output.transpose()]
-    }
-}
-
-impl GradFn for TensorPowFn {
-    fn apply(&self, grad_output: &Tensor) -> Vec<Tensor> {
-        let exponent = self.exponent;
-        let grad_input = grad_output * &(grad_output.pow(exponent - 1.0) * exponent);
-        vec![grad_input]
-    }
-}
-
-impl GradFn for TensorMatMulTensorFn {
-    fn apply(&self, grad_output: &Tensor) -> Vec<Tensor> {
-        let grad_a = grad_output.matmul(&self.rhs.transpose());
-        let grad_b = self.lhs.transpose().matmul(grad_output);
-
-        vec![grad_a, grad_b]
-    }
-}
-
-impl GradFn for TensorEWMulTensorFn {
-    fn apply(&self, grad_output: &Tensor) -> Vec<Tensor> {
-        let grad_a = grad_output * &*self.rhs;
-        let grad_b = grad_output * &*self.lhs;
-
-        vec![grad_a, grad_b]
-    }
+#[macro_export]
+macro_rules! not_implemented_grad_fn {
+    ($name:expr) => {
+        Some(Rc::new(
+            $crate::linalg::autograd::grad_fn::NotImplementedGradFn($name),
+        ))
+    };
 }

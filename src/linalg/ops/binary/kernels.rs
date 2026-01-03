@@ -1,16 +1,21 @@
-use crate::linalg::autograd::grad_fn::TensorEWMulTensorFn;
+use crate::linalg::autograd::grad_fn::binary::{AddGradFn, DivGradFn, EWSMultGradFn, SubGradFn};
 use crate::linalg::tensor_grad::{InternalTensor, Scalar, Storage, Tensor};
 use std::cell::RefCell;
 use std::rc::Rc;
 
 pub fn add_tt(a: &Tensor, b: &Tensor) -> Tensor {
+    let mut out = None;
     if a.is_scalar() {
-        // TODO: handle grad
-        return add_ts(b, a.storage.data[0]);
+        out = Some(add_ts(b, a.storage.data[0]));
     }
     if b.is_scalar() {
-        // TODO: handle grad
-        return add_ts(a, b.storage.data[0]);
+        out = Some(add_ts(a, b.storage.data[0]));
+    }
+    if let Some(mut out) = out {
+        if a.requires_grad || b.requires_grad {
+            out.set_grad_metadata(Rc::new(AddGradFn), vec![a.clone(), b.clone()])
+        }
+        return out;
     }
 
     assert_eq!(
@@ -43,14 +48,11 @@ pub fn add_tt(a: &Tensor, b: &Tensor) -> Tensor {
         offset: 0,
         grad: RefCell::new(None),
         grad_fn: if requires_grad {
-            Some(Rc::new(
-                crate::linalg::autograd::grad_fn::TensorAddTensorFn {},
-            ))
+            Some(Rc::new(AddGradFn))
         } else {
             None
         },
         parents: if requires_grad {
-            // a and b are already Rc-wrapped Tensor types
             vec![a.clone(), b.clone()]
         } else {
             Vec::new()
@@ -59,6 +61,7 @@ pub fn add_tt(a: &Tensor, b: &Tensor) -> Tensor {
     }
     .into()
 }
+
 pub fn add_ts(a: &Tensor, b: Scalar) -> Tensor {
     let mut result_data = Vec::with_capacity(a.shape().iter().product());
     for i in 0..a.storage.data.len() {
@@ -72,7 +75,7 @@ pub fn add_ts(a: &Tensor, b: Scalar) -> Tensor {
         offset: 0,
         grad: RefCell::new(None),
         grad_fn: if requires_grad {
-            None // Gradient function for b addition not implemented
+            Some(Rc::new(AddGradFn))
         } else {
             None
         },
@@ -85,15 +88,20 @@ pub fn add_ts(a: &Tensor, b: Scalar) -> Tensor {
     }
     .into()
 }
-
 pub fn sub_tt(a: &Tensor, b: &Tensor) -> Tensor {
+    let mut out = None;
     if a.is_scalar() {
-        // TODO: handle grad
-        return sub_st(a.storage.data[0], b);
+        out = Some(sub_st(a.storage.data[0], b));
     }
     if b.is_scalar() {
-        // TODO: handle grad
-        return sub_ts(a, b.storage.data[0]);
+        out = Some(sub_ts(a, b.storage.data[0]));
+    }
+
+    if let Some(mut out) = out {
+        if a.requires_grad || b.requires_grad {
+            out.set_grad_metadata(Rc::new(SubGradFn(true, true)), vec![a.clone(), b.clone()])
+        }
+        return out;
     }
 
     assert_eq!(
@@ -117,9 +125,7 @@ pub fn sub_tt(a: &Tensor, b: &Tensor) -> Tensor {
         offset: 0,
         grad: RefCell::new(None),
         grad_fn: if requires_grad {
-            Some(Rc::new(
-                crate::linalg::autograd::grad_fn::TensorSubTensorFn {},
-            ))
+            Some(Rc::new(SubGradFn(true, true)))
         } else {
             None
         },
@@ -148,7 +154,7 @@ pub fn sub_ts(a: &Tensor, b: Scalar) -> Tensor {
         offset: 0,
         grad: RefCell::new(None),
         grad_fn: if requires_grad {
-            None // Gradient function for scalar subtraction not implemented
+            Some(Rc::new(SubGradFn(true, false)))
         } else {
             None
         },
@@ -177,7 +183,7 @@ pub fn sub_st(a: Scalar, b: &Tensor) -> Tensor {
         offset: 0,
         grad: RefCell::new(None),
         grad_fn: if requires_grad {
-            None // Gradient function for scalar subtraction not implemented
+            Some(Rc::new(SubGradFn(false, true)))
         } else {
             None
         },
@@ -190,6 +196,7 @@ pub fn sub_st(a: Scalar, b: &Tensor) -> Tensor {
     }
     .into()
 }
+
 pub fn mul_ts(a: &Tensor, b: Scalar) -> Tensor {
     let mut result_data = Vec::with_capacity(a.shape().iter().product());
     for i in 0..a.storage.data.len() {
@@ -205,7 +212,7 @@ pub fn mul_ts(a: &Tensor, b: Scalar) -> Tensor {
         offset: 0,
         grad: RefCell::new(None),
         grad_fn: if requires_grad {
-            None // Gradient function for scalar multiplication not implemented
+            Some(Rc::new(EWSMultGradFn(Some(b))))
         } else {
             None
         },
@@ -221,36 +228,52 @@ pub fn mul_ts(a: &Tensor, b: Scalar) -> Tensor {
 
 // element-wise multiplication
 pub fn mul_tt_ews(a: &Tensor, b: &Tensor) -> Tensor {
+    let mut out = None;
+
+    if a.is_scalar() {
+        out = Some(mul_ts(b, a.storage.data[0]));
+    }
+    if b.is_scalar() {
+        out = Some(mul_ts(a, b.storage.data[0]));
+    }
+    if let Some(mut out) = out {
+        if a.requires_grad || b.requires_grad {
+            out.set_grad_metadata(Rc::new(EWSMultGradFn(None)), vec![a.clone(), b.clone()])
+        };
+        return out;
+    }
+
     assert_eq!(
-        a.shape, b.shape,
+        Tensor::reduce_shape(a.shape()),
+        Tensor::reduce_shape(b.shape()),
         "Shape mismatch for element-wise multiplication: {:?} vs {:?}",
-        a.shape, b.shape
+        a.shape,
+        b.shape
     );
 
-    let total_elements: usize = a.shape.iter().product();
+    let total_elements: usize = a.shape().iter().product();
     let mut result_data = Vec::with_capacity(total_elements);
 
     // Use strides
-    let mut indices = vec![0; a.shape.len()];
+    let mut a_indices = vec![0; a.shape().len()];
+    let mut b_indices = vec![0; b.shape().len()];
     for _ in 0..total_elements {
-        let idx_a = a.compute_flat_index(&indices);
-        let idx_b = b.compute_flat_index(&indices);
+        let idx_a = a.compute_flat_index(&a_indices);
+        let idx_b = b.compute_flat_index(&b_indices);
 
         result_data.push(a.storage.data[idx_a] * b.storage.data[idx_b]);
 
-        Tensor::increment_indices(&mut indices, &a.shape);
+        Tensor::increment_indices(&mut a_indices, a.shape());
+        Tensor::increment_indices(&mut b_indices, b.shape());
     }
     InternalTensor {
         storage: Rc::new(Storage::new(result_data)),
-        shape: a.shape.clone(),
+        shape: a.shape().into(),
         strides: a.strides.clone(),
         offset: 0,
         grad: RefCell::new(None),
         grad_fn: if a.requires_grad || b.requires_grad {
-            Some(Rc::new(TensorEWMulTensorFn {
-                lhs: Rc::new(a.clone()),
-                rhs: Rc::new(b.clone()),
-            }))
+            Some(Rc::new(EWSMultGradFn(None)))
         } else {
             None
         },
@@ -279,7 +302,7 @@ pub fn div_ts(a: &Tensor, b: Scalar) -> Tensor {
         offset: 0,
         grad: RefCell::new(None),
         grad_fn: if requires_grad {
-            None // Gradient function for scalar division not implemented
+            Some(Rc::new(DivGradFn(None, Some(b))))
         } else {
             None
         },
@@ -308,7 +331,7 @@ pub fn div_st(a: Scalar, b: &Tensor) -> Tensor {
         offset: 0,
         grad: RefCell::new(None),
         grad_fn: if requires_grad {
-            None // Gradient function for scalar division not implemented
+            Some(Rc::new(DivGradFn(Some(a), None)))
         } else {
             None
         },
@@ -325,12 +348,25 @@ pub fn div_st(a: Scalar, b: &Tensor) -> Tensor {
 // element-wise division
 pub fn div_tt_ews(a: &Tensor, b: &Tensor) -> Tensor {
     if a.is_scalar() {
-        // TODO: handle grad
-        return div_st(a.storage.data[0], b);
+        let mut out = div_st(a.storage.data[0], b);
+        if a.requires_grad || b.requires_grad {
+            out.set_grad_metadata(
+                Rc::new(DivGradFn(Some(a.as_scalar()), None)),
+                vec![a.clone(), b.clone()],
+            )
+        };
+        return out;
     }
+
     if b.is_scalar() {
-        // TODO: handle grad
-        return div_ts(a, b.storage.data[0]);
+        let mut out = div_ts(a, b.storage.data[0]);
+        if a.requires_grad || b.requires_grad {
+            out.set_grad_metadata(
+                Rc::new(DivGradFn(None, Some(b.as_scalar()))),
+                vec![a.clone(), b.clone()],
+            )
+        };
+        return out;
     }
 
     assert_eq!(
@@ -363,7 +399,7 @@ pub fn div_tt_ews(a: &Tensor, b: &Tensor) -> Tensor {
         offset: 0,
         grad: RefCell::new(None),
         grad_fn: if requires_grad {
-            None // Gradient function for division not implemented
+            Some(Rc::new(DivGradFn(None, None)))
         } else {
             None
         },

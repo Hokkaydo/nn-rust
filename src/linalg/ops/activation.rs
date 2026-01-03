@@ -1,4 +1,6 @@
+use crate::linalg::autograd::grad_fn::activation::{ReLUGradFn, SigmoidGradFn};
 use crate::linalg::tensor_grad::{InternalTensor, Scalar, Storage, Tensor};
+use crate::not_implemented_grad_fn;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -9,7 +11,7 @@ impl Tensor {
     pub fn sigmoid(&self) -> Tensor {
         let mut result_data = Vec::with_capacity(self.shape.iter().product());
         for i in 0..self.storage.data.len() {
-            let val = self.storage.data[i].clone();
+            let val = self.storage.data[i];
             result_data.push(1.0 / (1.0 + (-val).exp()));
         }
 
@@ -21,7 +23,11 @@ impl Tensor {
             strides: self.strides.clone(),
             offset: 0,
             grad: RefCell::new(None),
-            grad_fn: None, // Gradient function for sigmoid not implemented
+            grad_fn: if requires_grad {
+                Some(Rc::new(SigmoidGradFn))
+            } else {
+                None
+            },
             parents: if requires_grad {
                 vec![self.clone()]
             } else {
@@ -54,7 +60,7 @@ impl Tensor {
             .fold(Scalar::NEG_INFINITY, Scalar::max);
         let mut exp_sum = 0.0;
         for i in 0..self.storage.data.len() {
-            exp_sum += (self.storage.data[i].clone() - max_val).exp();
+            exp_sum += (self.storage.data[i] - max_val).exp();
         }
         let log_exp_sum = exp_sum.ln() + max_val;
 
@@ -71,7 +77,7 @@ impl Tensor {
             strides: self.strides.clone(),
             offset: 0,
             grad: RefCell::new(None),
-            grad_fn: None, // Gradient function for log_softmax not implemented
+            grad_fn: not_implemented_grad_fn!("LogSoftmax"),
             parents: if requires_grad {
                 vec![self.clone()]
             } else {
@@ -84,9 +90,16 @@ impl Tensor {
 
     pub fn relu(&self) -> Tensor {
         let mut result_data = Vec::with_capacity(self.shape.iter().product());
+        let mut mask = Vec::with_capacity(self.shape.iter().product());
         for i in 0..self.storage.data.len() {
-            let val = self.storage.data[i].clone();
-            result_data.push(if val < 0.0 { 0.0 } else { val });
+            let val = self.storage.data[i];
+            if val < 0.0 {
+                result_data.push(0.0);
+                mask.push(0.0);
+            } else {
+                result_data.push(val);
+                mask.push(1.0);
+            }
         }
 
         let requires_grad = self.requires_grad;
@@ -97,7 +110,11 @@ impl Tensor {
             strides: self.strides.clone(),
             offset: 0,
             grad: RefCell::new(None),
-            grad_fn: None, // Gradient function for relu not implemented
+            grad_fn: if requires_grad {
+                Some(Rc::new(ReLUGradFn(Tensor::new(mask, self.shape()))))
+            } else {
+                None
+            },
             parents: if requires_grad {
                 vec![self.clone()]
             } else {

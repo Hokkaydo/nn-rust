@@ -19,6 +19,9 @@ impl Storage {
     }
 }
 
+/// A multidimensional array (tensor) that supports automatic differentiation.
+/// This wrapper struct holds a reference-counted pointer to the internal tensor representation,
+/// allowing for efficient sharing and cloning of tensor data.
 #[derive(Clone)]
 pub struct Tensor(pub(crate) Rc<InternalTensor>);
 
@@ -39,6 +42,20 @@ impl Tensor {
     /// Creates a new Tensor with the given data and shape.
     pub fn new(data: Vec<Scalar>, shape: &[usize]) -> Self {
         InternalTensor::new(data, shape).into()
+    }
+
+    pub fn from_scalar(value: Scalar) -> Self {
+        InternalTensor {
+            storage: Rc::new(Storage::new(vec![value])),
+            shape: vec![1],
+            strides: vec![1],
+            offset: 0,
+            grad: RefCell::new(None),
+            grad_fn: None,
+            parents: Vec::new(),
+            requires_grad: false,
+        }
+        .into()
     }
 
     /// Computes the shape without dimensions of size one.
@@ -230,6 +247,35 @@ impl Clone for InternalTensor {
     }
 }
 
+impl Tensor {
+    fn debug_mean(&self) -> Scalar {
+        let sum: Scalar = self.storage.data.iter().sum();
+        sum / (self.shape.iter().product::<usize>() as Scalar)
+    }
+
+    fn debug_sum(&self) -> Scalar {
+        self.storage.data.iter().sum()
+    }
+
+    fn debug_min(&self) -> Scalar {
+        *self
+            .storage
+            .data
+            .iter()
+            .min_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap()
+    }
+
+    fn debug_max(&self) -> Scalar {
+        *self
+            .storage
+            .data
+            .iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap()
+    }
+}
+
 impl Debug for Tensor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Tensor")
@@ -237,7 +283,27 @@ impl Debug for Tensor {
             .field("strides", &self.strides)
             .field("offset", &self.offset)
             .field("requires_grad", &self.requires_grad)
-            .field("data", &self.storage.data)
+            .field(
+                "data",
+                &format_args!(
+                    "mean: {:.4}, sum: {:.4}, min: {:.4}, max: {:.4}",
+                    self.debug_mean(),
+                    self.debug_sum(),
+                    self.debug_min(),
+                    self.debug_max()
+                ),
+            )
+            .field(
+                "grad",
+                &self
+                    .grad
+                    .borrow()
+                    .as_deref()
+                    .map(|_| "Some(Tensor)")
+                    .unwrap_or("None"),
+            )
+            .field("grad_fn", &self.grad_fn.as_deref().map(|f| f.type_name()))
+            .field("parents", &self.parents.len())
             .finish()
     }
 }

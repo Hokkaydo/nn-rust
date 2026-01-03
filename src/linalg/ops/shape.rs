@@ -1,4 +1,4 @@
-use crate::linalg::autograd::grad_fn::TensorTransposeFn;
+use crate::linalg::autograd::grad_fn::shape::TransposeGradFn;
 use crate::linalg::tensor_grad::Tensor;
 use crate::linalg::tensor_grad::{InternalTensor, Scalar};
 use std::cell::RefCell;
@@ -25,7 +25,7 @@ impl Tensor {
             offset: self.offset,
             grad: RefCell::new(None),
             grad_fn: if self.requires_grad {
-                Some(Rc::new(TensorTransposeFn {}))
+                Some(Rc::new(TransposeGradFn))
             } else {
                 None
             },

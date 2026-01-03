@@ -1,4 +1,6 @@
-use crate::linalg::autograd::grad_fn::{TensorNegTensorFn, TensorPowFn};
+use crate::linalg::autograd::grad_fn::unary::{
+    AbsGradFn, ClampGradFn, ExpGradFn, LogGradFn, NegGradFn, PowGradFn,
+};
 use crate::linalg::tensor_grad::{InternalTensor, Scalar, Storage, Tensor};
 use std::cell::RefCell;
 use std::ops::Neg;
@@ -25,7 +27,7 @@ impl Neg for &Tensor {
             offset: 0,
             grad: RefCell::new(None),
             grad_fn: if requires_grad {
-                Some(Rc::new(TensorNegTensorFn {}))
+                Some(Rc::new(NegGradFn))
             } else {
                 None
             },
@@ -57,7 +59,7 @@ impl Tensor {
     pub fn pow(&self, exponent: Scalar) -> Tensor {
         let mut result_data = Vec::with_capacity(self.shape.iter().product());
         for i in 0..self.storage.data.len() {
-            result_data.push(self.storage.data[i].clone().powf(exponent));
+            result_data.push(self.storage.data[i].powf(exponent));
         }
 
         let requires_grad = self.requires_grad;
@@ -69,7 +71,7 @@ impl Tensor {
             offset: 0,
             grad: RefCell::new(None),
             grad_fn: if requires_grad {
-                Some(Rc::new(TensorPowFn { exponent }))
+                Some(Rc::new(PowGradFn(exponent)))
             } else {
                 None
             },
@@ -103,7 +105,7 @@ impl Tensor {
     pub fn abs(&self) -> Tensor {
         let mut result_data = Vec::with_capacity(self.shape.iter().product());
         for i in 0..self.storage.data.len() {
-            result_data.push(self.storage.data[i].clone().abs());
+            result_data.push(self.storage.data[i].abs());
         }
 
         let requires_grad = self.requires_grad;
@@ -114,7 +116,11 @@ impl Tensor {
             strides: self.strides.clone(),
             offset: 0,
             grad: RefCell::new(None),
-            grad_fn: None, // Gradient function for abs not implemented
+            grad_fn: if requires_grad {
+                Some(Rc::new(AbsGradFn))
+            } else {
+                None
+            },
             parents: if requires_grad {
                 vec![self.clone()]
             } else {
@@ -133,16 +139,18 @@ impl Tensor {
     /// A tensor with values clamped between min and max
     pub fn clamp(&self, min: Scalar, max: Scalar) -> Tensor {
         let mut result_data = Vec::with_capacity(self.shape.iter().product());
+        let mut mask = Vec::with_capacity(self.shape.iter().product());
         for i in 0..self.storage.data.len() {
-            let val = self.storage.data[i].clone();
-            let clamped = if val < min {
-                min
-            } else if val > max {
-                max
+            if self.storage.data[i] < min {
+                result_data.push(min);
+                mask.push(0.);
+            } else if self.storage.data[i] > max {
+                result_data.push(max);
+                mask.push(0.);
             } else {
-                val
-            };
-            result_data.push(clamped);
+                result_data.push(self.storage.data[i]);
+                mask.push(1.);
+            }
         }
 
         let requires_grad = self.requires_grad;
@@ -153,7 +161,11 @@ impl Tensor {
             strides: self.strides.clone(),
             offset: 0,
             grad: RefCell::new(None),
-            grad_fn: None, // Gradient function for clamp not implemented
+            grad_fn: if requires_grad {
+                Some(Rc::new(ClampGradFn(Tensor::new(mask, &self.shape))))
+            } else {
+                None
+            },
             parents: if requires_grad {
                 vec![self.clone()]
             } else {
@@ -170,7 +182,7 @@ impl Tensor {
     pub fn log(&self) -> Tensor {
         let mut result_data = Vec::with_capacity(self.shape.iter().product());
         for i in 0..self.storage.data.len() {
-            result_data.push(self.storage.data[i].clone().ln());
+            result_data.push(self.storage.data[i].ln());
         }
 
         let requires_grad = self.requires_grad;
@@ -181,7 +193,11 @@ impl Tensor {
             strides: self.strides.clone(),
             offset: 0,
             grad: RefCell::new(None),
-            grad_fn: None, // Gradient function for log not implemented
+            grad_fn: if requires_grad {
+                Some(Rc::new(LogGradFn))
+            } else {
+                None
+            },
             parents: if requires_grad {
                 vec![self.clone()]
             } else {
@@ -195,7 +211,7 @@ impl Tensor {
     pub fn exp(&self) -> Tensor {
         let mut result_data = Vec::with_capacity(self.shape.iter().product());
         for i in 0..self.storage.data.len() {
-            result_data.push(self.storage.data[i].clone().exp());
+            result_data.push(self.storage.data[i].exp());
         }
 
         let requires_grad = self.requires_grad;
@@ -206,7 +222,37 @@ impl Tensor {
             strides: self.strides.clone(),
             offset: 0,
             grad: RefCell::new(None),
-            grad_fn: None, // Gradient function for exp not implemented
+            grad_fn: if requires_grad {
+                Some(Rc::new(ExpGradFn))
+            } else {
+                None
+            },
+            parents: if requires_grad {
+                vec![self.clone()]
+            } else {
+                Vec::new()
+            },
+            requires_grad,
+        }
+        .into()
+    }
+
+    pub fn sign(&self) -> Tensor {
+        let result_data = self
+            .storage
+            .data
+            .iter()
+            .map(|x| x.signum())
+            .collect::<Vec<_>>();
+        let requires_grad = self.requires_grad;
+
+        InternalTensor {
+            storage: Rc::new(Storage::new(result_data)),
+            shape: self.shape.clone(),
+            strides: self.strides.clone(),
+            offset: 0,
+            grad: RefCell::new(None),
+            grad_fn: None, // Gradient function for sign not implemented
             parents: if requires_grad {
                 vec![self.clone()]
             } else {

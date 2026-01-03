@@ -35,17 +35,17 @@ fn train(mnist: &MNIST, net: Option<NeuralNetwork>) -> NeuralNetwork {
     );
     let optimizer: Box<dyn Optimizer> = if std::env::args().any(|arg| arg == "--adam") {
         Box::from(Adam::new(0.1, 0.9, 0.999, 1e-8))
-    } else if std::env::args().any(|arg| arg == "--grad") {
+    } else if std::env::args().any(|arg| arg == "--sgd") {
         Box::from(SGD::new(0.1))
     } else {
-        panic!("Please specify an optimizer: --adam or --grad");
+        panic!("Please specify an optimizer: --adam or --sgd");
     };
 
     let net = if let Some(mut trained_net) = net {
         mnist.train(&mut train_batches, 1, optimizer, &mut trained_net);
         trained_net
     } else {
-        mnist.train_linear_model(&mut train_batches, 5, optimizer)
+        mnist.train_linear_model(&mut train_batches, 1, optimizer)
     };
 
     net.dump_memory("mnist_output.bin");

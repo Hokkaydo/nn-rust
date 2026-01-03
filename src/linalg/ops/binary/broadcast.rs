@@ -1,3 +1,4 @@
+use crate::linalg::autograd::grad_fn::binary::AddGradFn;
 use crate::linalg::tensor_grad::{InternalTensor, Storage, Tensor};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -65,8 +66,16 @@ impl Tensor {
             strides: self_strides.clone(),
             offset: 0,
             grad: RefCell::new(None),
-            grad_fn: None,
-            parents: Vec::new(),
+            grad_fn: if self.requires_grad || other.requires_grad {
+                Some(Rc::new(AddGradFn))
+            } else {
+                None
+            },
+            parents: if self.requires_grad || other.requires_grad {
+                vec![self.clone(), other.clone()]
+            } else {
+                Vec::new()
+            },
             requires_grad: self.requires_grad || other.requires_grad,
         }
         .into()

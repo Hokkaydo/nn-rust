@@ -1,4 +1,4 @@
-use crate::linalg::autograd::grad_fn::TensorMatMulTensorFn;
+use crate::linalg::autograd::grad_fn::matmul::MatMulGradFn;
 use crate::linalg::tensor_grad::{InternalTensor, Storage, Tensor};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -50,10 +50,7 @@ impl Tensor {
             offset: 0,
             grad: RefCell::new(None),
             grad_fn: if requires_grad {
-                Some(Rc::new(TensorMatMulTensorFn {
-                    lhs: Rc::from(self.clone()),
-                    rhs: Rc::from(other.clone()),
-                }))
+                Some(Rc::new(MatMulGradFn))
             } else {
                 None
             },
