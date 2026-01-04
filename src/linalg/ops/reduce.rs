@@ -14,7 +14,7 @@ impl Tensor {
             count *= self.shape[axis] as Scalar;
             reduced_shape[axis] = 1;
         }
-        reduced_shape = reduced_shape.into_iter().filter(|&dim| dim != 1).collect();
+        reduced_shape.retain(|&dim| dim != 1);
         if reduced_shape.is_empty() {
             reduced_shape.push(1);
         }
@@ -24,7 +24,7 @@ impl Tensor {
             let mut sum = 0.0;
             for j in 0..(self.shape.iter().product::<usize>() / total_elements) {
                 let index = i + j * total_elements;
-                sum += self.storage.data[index].clone();
+                sum += self.storage.data[index];
             }
             result_data.push(sum / count);
         }
@@ -100,7 +100,7 @@ impl Tensor {
         for _ in 0..new_shape.iter().product() {
             indices[axis] += start;
             let idx = self.compute_flat_index(&indices);
-            result_data.push(self.storage.data[idx].clone());
+            result_data.push(self.storage.data[idx]);
             indices[axis] -= start;
             Tensor::increment_indices(&mut indices, &new_shape);
         }
@@ -153,7 +153,7 @@ impl Tensor {
             let gather_idx = indices[coord[axis]];
             let src_offset = in_offset + gather_idx * in_strides[axis];
 
-            out_data.push(self.storage.data[src_offset].clone());
+            out_data.push(self.storage.data[src_offset]);
 
             // increment output index
             for d in (0..ndim).rev() {
@@ -272,7 +272,7 @@ impl Tensor {
         let mut result_data = Vec::new();
         let mut reduced_shape = self.shape.clone();
         reduced_shape[axis] = 1;
-        reduced_shape = reduced_shape.into_iter().filter(|&dim| dim != 1).collect();
+        reduced_shape.retain(|&dim| dim != 1);
         if reduced_shape.is_empty() {
             reduced_shape.push(1);
         }
@@ -282,7 +282,7 @@ impl Tensor {
             let mut sum = 0.0;
             for j in 0..(self.shape.iter().product::<usize>() / total_elements) {
                 let index = i + j * total_elements;
-                sum += self.storage.data[index].clone();
+                sum += self.storage.data[index];
             }
             result_data.push(sum);
         }

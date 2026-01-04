@@ -33,8 +33,7 @@ impl Tensor {
             } else {
                 assert_eq!(
                     padded_other_shape[d], self_shape[d],
-                    "Broadcast mismatch at dim {}",
-                    d
+                    "Broadcast mismatch at dim {d}"
                 );
             }
         }

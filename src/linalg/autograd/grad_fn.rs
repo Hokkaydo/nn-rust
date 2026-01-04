@@ -19,7 +19,7 @@ pub(crate) struct NotImplementedGradFn(pub(crate) &'static str);
 
 impl GradFn for NotImplementedGradFn {
     fn apply(&self, _output: &Tensor, _grad_output: &Tensor) -> Vec<Tensor> {
-        panic!("{}'s gradient is not defined", self.0.to_string());
+        panic!("{}'s gradient is not defined", self.0);
     }
 }
 #[macro_export]

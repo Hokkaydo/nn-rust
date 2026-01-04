@@ -40,7 +40,7 @@ impl GradFn for EWSMultGradFn {
         let a = &output.parents[0];
         let b = &self
             .0
-            .map(|x| Tensor::from_scalar(x))
+            .map(Tensor::from_scalar)
             .unwrap_or_else(|| output.parents[1].clone());
 
         if a.requires_grad {
@@ -63,11 +63,11 @@ impl GradFn for DivGradFn {
         let mut grads = Vec::new();
         let a = &self
             .0
-            .map(|x| Tensor::from_scalar(x))
+            .map(Tensor::from_scalar)
             .unwrap_or_else(|| output.parents[0].clone());
         let b = &self
             .1
-            .map(|x| Tensor::from_scalar(x))
+            .map(Tensor::from_scalar)
             .unwrap_or_else(|| output.parents[1].clone());
         if a.requires_grad {
             let shape = a.shape();

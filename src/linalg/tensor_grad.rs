@@ -221,11 +221,7 @@ impl InternalTensor {
         );
         let mut flat_index = self.offset;
         for (i, &idx) in indices.iter().enumerate() {
-            assert!(
-                idx < self.shape[i],
-                "Index out of bounds for dimension {}",
-                i
-            );
+            assert!(idx < self.shape[i], "Index out of bounds for dimension {i}",);
             flat_index += idx * self.strides[i];
         }
         flat_index

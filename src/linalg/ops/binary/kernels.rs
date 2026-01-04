@@ -36,7 +36,7 @@ pub fn add_tt(a: &Tensor, b: &Tensor) -> Tensor {
 
         result_data.push(a.storage.data[idx_a] + b.storage.data[idx_b]);
 
-        Tensor::increment_indices(&mut indices, &a.shape());
+        Tensor::increment_indices(&mut indices, a.shape());
     }
 
     let requires_grad = a.requires_grad || b.requires_grad;
@@ -387,7 +387,7 @@ pub fn div_tt_ews(a: &Tensor, b: &Tensor) -> Tensor {
 
         result_data.push(a.storage.data[idx_a] / b.storage.data[idx_b]);
 
-        Tensor::increment_indices(&mut indices, &a.shape());
+        Tensor::increment_indices(&mut indices, a.shape());
     }
 
     let requires_grad = a.requires_grad || b.requires_grad;

@@ -24,7 +24,7 @@ pub fn nll_loss(target: &Tensor, pred: &Tensor) -> Tensor {
         }
     }
     // Normalize by batch size
-    Tensor::new(vec![loss / (shape[0] as f32)], &vec![1])
+    Tensor::new(vec![loss / (shape[0] as f32)], &[1])
 }
 
 pub fn mse(target: &Tensor, pred: &Tensor) -> Tensor {

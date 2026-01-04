@@ -42,7 +42,7 @@ impl Tensor {
     /// Performs backpropagation to compute gradients for all tensors in the computation graph
     /// that have `requires_grad` set to true.
     /// Gradients are accumulated in the `grad` field of each tensor.
-    pub fn backward(self: &Self) {
+    pub fn backward(&self) {
         self.backward_with_options(false);
     }
 
@@ -50,8 +50,8 @@ impl Tensor {
     /// that have `requires_grad` set to true.
     /// # Arguments
     /// * `retain_graph` If true, retains the computation graph after backward pass,
-    /// else clears gradients of intermediate tensors.
-    pub fn backward_with_options(self: &Self, fresh_graph: bool) {
+    ///   else clears gradients of intermediate tensors.
+    pub fn backward_with_options(&self, fresh_graph: bool) {
         assert!(self.requires_grad);
 
         let mut topo = Vec::new();
@@ -125,7 +125,7 @@ impl Tensor {
         new_shape.insert(axis, size); // insert the repeated dimension
 
         let mut new_data = Vec::with_capacity(new_shape.iter().product());
-        let old_strides = Tensor::compute_strides(&self.shape());
+        let old_strides = Tensor::compute_strides(self.shape());
 
         // Iterate over all coordinates of the new tensor
         let mut indices = vec![0; new_shape.len()];

@@ -2,6 +2,7 @@ use crate::linalg::tensor_grad::Tensor;
 use crate::nn_grad::{Layer, registry};
 use std::any::Any;
 use std::io::{BufRead, Write};
+use std::ops::Deref;
 
 pub struct NeuralNetwork {
     pub layers: Vec<Box<dyn Layer>>,
@@ -14,7 +15,7 @@ impl NeuralNetwork {
 
     pub fn restore(path: &str) -> Self {
         let mut nn = NeuralNetwork { layers: vec![] };
-        nn.restore_memory(&path);
+        nn.restore_memory(path);
         nn
     }
 
@@ -35,11 +36,11 @@ impl NeuralNetwork {
     }
 
     pub fn dump_memory(&self, path: &str) {
-        let file = std::fs::File::create(format!("{}", path)).unwrap();
+        let file = std::fs::File::create(path).unwrap();
         let mut writer = std::io::BufWriter::new(file);
         for layer in &self.layers {
             writer
-                .write_all(format!("{:?}\n", layer.type_id()).as_bytes())
+                .write_all(format!("{:?}\n", layer.deref().type_id()).as_bytes())
                 .unwrap();
             layer.dump(&mut writer);
         }
@@ -55,7 +56,7 @@ impl NeuralNetwork {
             let map = registry();
             let restore_fn = map
                 .get(type_id)
-                .unwrap_or_else(|| panic!("Unknown type_id: {}", type_id));
+                .unwrap_or_else(|| panic!("Unknown type_id: {type_id}"));
             restore_fn(&mut reader);
             token.clear();
         }

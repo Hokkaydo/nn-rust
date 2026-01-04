@@ -96,8 +96,8 @@ impl MNIST {
 
     pub fn to_batches(
         &self,
-        images: &Vec<Vec<u8>>,
-        labels: &Vec<u8>,
+        images: &[Vec<u8>],
+        labels: &[u8],
         batch_size: usize,
         flat: bool,
     ) -> Vec<MNISTBatch> {
@@ -151,7 +151,7 @@ impl MNIST {
             Box::new(Linear::init(input_size, 128)),
             Box::new(ReLU::default()),
             Box::new(Linear::init(128, output_size)),
-            Box::new(Sigmoid::default()),
+            Box::new(Sigmoid),
         ]);
 
         self.train(batches, epochs, optimizer, &mut net);
@@ -169,7 +169,7 @@ impl MNIST {
         for epoch in 0..epochs {
             batches.shuffle(&mut rand::rng());
             let test_accuracy = self.test_model(batches, net);
-            println!("Initial test accuracy: {}", test_accuracy);
+            println!("Initial test accuracy: {test_accuracy}");
             for (i, batch) in batches.iter().enumerate() {
                 let output = net.forward(batch.images.clone());
                 let loss = mse(&batch.labels, &output);
@@ -180,7 +180,7 @@ impl MNIST {
                     optimizer.step(net.parameters_mut());
                     optimizer.reset();
                     let test_accuracy = self.test_model(batches, net);
-                    println!("Test Accuracy after batch {i}: {}", test_accuracy);
+                    println!("Test Accuracy after batch {i}: {test_accuracy}");
                 }
             }
             optimizer.step(net.parameters_mut());

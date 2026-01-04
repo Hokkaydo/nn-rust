@@ -21,7 +21,7 @@ pub fn some(
         Box::new(Linear::init(input_size, 16)),
         Box::new(ReLU::default()),
         Box::new(Linear::init(16, output_size)),
-        Box::new(Sigmoid::default()),
+        Box::new(Sigmoid),
     ]);
 
     let mut rng = rand::rng();
@@ -41,7 +41,7 @@ pub fn some(
         shuffled_indices.shuffle(&mut rng);
 
         let noise: Vec<Scalar> = (0..batch_size)
-            .map(|_| rng.clone().sample(&uniform) as Scalar)
+            .map(|_| rng.clone().sample(uniform) as Scalar)
             .collect();
         let noise_tensor = Tensor::new(noise, &[batch_size, 1]);
         let input = inputs.gather(0, &shuffled_indices) + noise_tensor;
@@ -49,12 +49,12 @@ pub fn some(
         let output = net.forward(input.clone());
         let mut loss = mse(&target, &output);
         let loss_scalar = loss.as_scalar();
-        println!("Epoch {}: Loss = {}", epoch, loss_scalar);
-        writeln!(file, "{},{}", epoch, loss_scalar).expect("Unable to write to file");
+        println!("Epoch {epoch}: Loss = {loss_scalar}");
+        writeln!(file, "{epoch},{loss_scalar}").expect("Unable to write to file");
 
         if epochs > epochs / 10 && plateau.has_plateaued(loss_scalar) {
             learning_rate *= 0.8;
-            println!("Learning rate adjusted to {}", learning_rate);
+            println!("Learning rate adjusted to {learning_rate}");
         }
         if learning_rate < 0.0001 {
             println!("Learning rate too low, stopping training.");
@@ -67,7 +67,7 @@ pub fn some(
     for i in 0..batch_size {
         let input = inputs.slice(0, i, 1);
         let output = net.forward(input.clone());
-        println!("Input: {:?}, Output: {:?}", input, output);
+        println!("Input: {input:?}, Output: {output:?}");
     }
     net
 }

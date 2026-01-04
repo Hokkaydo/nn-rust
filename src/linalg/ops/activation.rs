@@ -66,7 +66,7 @@ impl Tensor {
 
         let mut result_data = Vec::with_capacity(self.shape.iter().product());
         for index in 0..self.storage.data.len() {
-            result_data.push(self.storage.data[index].clone() - log_exp_sum);
+            result_data.push(self.storage.data[index] - log_exp_sum);
         }
 
         let requires_grad = self.requires_grad;
