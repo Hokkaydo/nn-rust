@@ -1,5 +1,5 @@
-use crate::linalg::tensor_grad::Tensor;
-use crate::nn_grad::{Dumpable, Layer};
+use crate::linalg::tensor::Tensor;
+use crate::nn::{Dumpable, Layer};
 use std::fs::File;
 use std::io::BufReader;
 

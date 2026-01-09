@@ -1,4 +1,4 @@
-use crate::linalg::tensor_grad::{Scalar, Tensor};
+use crate::linalg::tensor::{Scalar, Tensor};
 /// Computes the negative log-likelihood loss, where the current tensor contains raw probabilities
 /// # Arguments
 /// * `target` - A tensor of the same shape as self, containing the target labels (one-hot encoded)
@@ -33,7 +33,7 @@ pub fn mse(target: &Tensor, pred: &Tensor) -> Tensor {
         pred.shape(),
         "Target and prediction tensors must have the same shape for MSE"
     );
-    (target - pred).square().mean_scalar()
+    (pred - target).square().mean_scalar()
 }
 
 pub fn mae(target: &Tensor, pred: &Tensor) -> Tensor {

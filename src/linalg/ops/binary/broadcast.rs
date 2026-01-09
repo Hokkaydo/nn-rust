@@ -1,5 +1,5 @@
 use crate::linalg::autograd::grad_fn::binary::AddGradFn;
-use crate::linalg::tensor_grad::{InternalTensor, Storage, Tensor};
+use crate::linalg::tensor::{InternalTensor, Storage, Tensor};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -66,7 +66,7 @@ impl Tensor {
             offset: 0,
             grad: RefCell::new(None),
             grad_fn: if self.requires_grad || other.requires_grad {
-                Some(Rc::new(AddGradFn))
+                Some(Rc::new(AddGradFn::new(vec![self.clone(), other.clone()])))
             } else {
                 None
             },

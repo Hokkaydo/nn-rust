@@ -1,4 +1,4 @@
-use nn_rs::linalg::tensor_grad::Tensor;
+use nn_rs::linalg::tensor::Tensor;
 #[cfg(test)]
 #[test]
 fn test_matmul() {

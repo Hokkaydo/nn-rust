@@ -1,7 +1,7 @@
-use crate::linalg::tensor_grad::{Scalar, Tensor};
+use crate::linalg::tensor::{Scalar, Tensor};
 
 pub trait Optimizer {
-    fn step(&mut self, params: Vec<&mut Tensor>);
+    fn step(&mut self, params: Vec<&mut Tensor>, zero_grad: bool);
     fn reset(&mut self) {}
 }
 
@@ -16,14 +16,22 @@ impl SGD {
 }
 
 impl Optimizer for SGD {
-    fn step(&mut self, params: Vec<&mut Tensor>) {
+    fn step(&mut self, params: Vec<&mut Tensor>, zero_grad: bool) {
         for param in params {
             if !param.requires_grad {
                 continue;
             }
-            let grad = param.grad().expect("Gradient not found for parameter");
+            let grad = param.grad().expect(
+                format!(
+                    "Gradient not found for parameter with shape {:?}",
+                    param.shape()
+                )
+                .as_str(),
+            );
             *param = &*param - &(grad * self.learning_rate);
-            param.clear_graph();
+            if zero_grad {
+                param.zero_grad();
+            }
         }
     }
 }
@@ -53,7 +61,7 @@ impl Adam {
 }
 
 impl Optimizer for Adam {
-    fn step(&mut self, params: Vec<&mut Tensor>) {
+    fn step(&mut self, params: Vec<&mut Tensor>, zero_grad: bool) {
         let mut i = 0;
         for param in params {
             if !param.requires_grad {
@@ -78,6 +86,9 @@ impl Optimizer for Adam {
             let v_hat = &v / (1.0 - self.beta2.powi((self.time_step + 1) as i32));
 
             *param = &*param - &(&m_hat / &(&v_hat.sqrt() + self.epsilon) * self.learning_rate);
+            if zero_grad {
+                param.zero_grad();
+            }
             self.mean_vectors[i] = m;
             self.variance_vectors[i] = v;
             self.time_step += 1;

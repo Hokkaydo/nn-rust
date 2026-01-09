@@ -1,5 +1,5 @@
 use crate::linalg::autograd::grad_fn::activation::{ReLUGradFn, SigmoidGradFn};
-use crate::linalg::tensor_grad::{InternalTensor, Scalar, Storage, Tensor};
+use crate::linalg::tensor::{InternalTensor, Scalar, Storage, Tensor};
 use crate::not_implemented_grad_fn;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -17,25 +17,22 @@ impl Tensor {
 
         let requires_grad = self.requires_grad;
 
-        InternalTensor {
+        let mut out: Tensor = InternalTensor {
             storage: Rc::new(Storage::new(result_data)),
             shape: self.shape.clone(),
             strides: self.strides.clone(),
             offset: 0,
             grad: RefCell::new(None),
-            grad_fn: if requires_grad {
-                Some(Rc::new(SigmoidGradFn))
-            } else {
-                None
-            },
-            parents: if requires_grad {
-                vec![self.clone()]
-            } else {
-                Vec::new()
-            },
+            grad_fn: None,
+            parents: Vec::new(),
             requires_grad,
         }
-        .into()
+        .into();
+        if requires_grad {
+            out.set_grad_metadata(Rc::new(SigmoidGradFn::new(out.clone())), vec![self.clone()]);
+        }
+
+        out
     }
 
     /// Computes the softmax of the tensor
@@ -111,7 +108,7 @@ impl Tensor {
             offset: 0,
             grad: RefCell::new(None),
             grad_fn: if requires_grad {
-                Some(Rc::new(ReLUGradFn(Tensor::new(mask, self.shape()))))
+                Some(Rc::new(ReLUGradFn::new(Tensor::new(mask, self.shape()))))
             } else {
                 None
             },

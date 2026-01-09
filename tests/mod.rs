@@ -1,1 +1,2 @@
-mod grad_tensor;
+mod gradient;
+mod tensor;

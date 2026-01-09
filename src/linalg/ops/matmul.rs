@@ -1,31 +1,46 @@
 use crate::linalg::autograd::grad_fn::matmul::MatMulGradFn;
-use crate::linalg::tensor_grad::{InternalTensor, Storage, Tensor};
+use crate::linalg::tensor::{InternalTensor, Storage, Tensor};
 use std::cell::RefCell;
 use std::rc::Rc;
 
 impl Tensor {
     pub fn matmul(&self, other: &Tensor) -> Tensor {
+        let a = match self.shape().len() {
+            1 => self.unsqueeze(0), // [k] -> [1, k]
+            2 => self.clone(),
+            _ => panic!("matmul expects 1D or 2D tensor"),
+        };
+
+        let b = match other.shape().len() {
+            1 => other.unsqueeze(1), // [k] -> [k, 1]
+            2 => other.clone(),
+            _ => panic!("matmul expects 1D or 2D tensor"),
+        };
+
         assert_eq!(
-            self.shape.len(),
+            a.shape().len(),
             2,
             "Left tensor must be 2D, got shape {:?}",
-            self.shape
+            a.shape()
         );
         assert_eq!(
-            other.shape.len(),
+            b.shape().len(),
             2,
             "Right tensor must be 2D, got shape {:?}",
-            other.shape
+            b.shape()
         );
         assert_eq!(
-            self.shape[1], other.shape[0],
+            a.shape()[1],
+            b.shape()[0],
             "Inner dimensions must match: got {} vs {}",
-            self.shape[1], other.shape[0]
+            a.shape()[1],
+            b.shape()[0]
         );
 
-        let m = self.shape[0];
-        let k = self.shape[1];
-        let n = other.shape[1];
+        let [m, k] = a.shape()[..] else {
+            panic!("Expected 2D shape")
+        };
+        let n = b.shape()[1];
 
         let mut result_data = vec![0.0; m * n];
 
@@ -33,16 +48,15 @@ impl Tensor {
             for j in 0..n {
                 let mut sum = 0.0;
                 for kk in 0..k {
-                    let a_idx = self.offset + i * self.strides[0] + kk * self.strides[1];
-                    let b_idx = other.offset + kk * other.strides[0] + j * other.strides[1];
-                    sum += self.storage.data[a_idx] * other.storage.data[b_idx];
+                    let a_idx = a.offset + i * a.strides[0] + kk * a.strides[1];
+                    let b_idx = b.offset + kk * b.strides[0] + j * b.strides[1];
+                    sum += a.storage.data[a_idx] * b.storage.data[b_idx];
                 }
                 result_data[i * n + j] = sum;
             }
         }
 
-        let requires_grad = self.requires_grad || other.requires_grad;
-
+        let requires_grad = a.requires_grad || b.requires_grad;
         InternalTensor {
             storage: Rc::new(Storage::new(result_data)),
             shape: vec![m, n],
@@ -50,7 +64,12 @@ impl Tensor {
             offset: 0,
             grad: RefCell::new(None),
             grad_fn: if requires_grad {
-                Some(Rc::new(MatMulGradFn))
+                Some(Rc::new(MatMulGradFn {
+                    lhs: a.clone(),
+                    rhs: b.clone(),
+                    lhs_shape: self.shape().to_vec(),
+                    rhs_shape: other.shape().to_vec(),
+                }))
             } else {
                 None
             },

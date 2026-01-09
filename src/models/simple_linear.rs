@@ -1,8 +1,8 @@
-use crate::helpers_grad::metrics::*;
-use crate::helpers_grad::optimizer::{Optimizer, SGD};
-use crate::helpers_grad::stopper::*;
-use crate::linalg::tensor_grad::{Scalar, Tensor};
-use crate::nn_grad::{activation::*, linear::Linear, models::NeuralNetwork};
+use crate::helpers::metrics::*;
+use crate::helpers::optimizer::{Optimizer, SGD};
+use crate::helpers::stopper::*;
+use crate::linalg::tensor::{Scalar, Tensor};
+use crate::nn::{linear::Linear, models::NeuralNetwork};
 use rand::Rng;
 use rand::seq::SliceRandom;
 use std::io::Write;
@@ -17,12 +17,7 @@ pub fn some(
     let batch_size = inputs.shape()[0];
     let input_size = inputs.shape()[1];
     let output_size = targets.shape()[1];
-    let mut net = NeuralNetwork::init(vec![
-        Box::new(Linear::init(input_size, 16)),
-        Box::new(ReLU::default()),
-        Box::new(Linear::init(16, output_size)),
-        Box::new(Sigmoid),
-    ]);
+    let mut net = NeuralNetwork::init(vec![Box::new(Linear::init(input_size, output_size))]);
 
     let mut rng = rand::rng();
     let uniform = rand::distr::Uniform::new(-0.1, 0.1).unwrap();
@@ -33,9 +28,9 @@ pub fn some(
         epochs / 100, // patience
         0.0001,       // threshold
     );
-    let mut optimizer = SGD::new(0.01);
 
     for epoch in 0..epochs {
+        let mut optimizer = SGD::new(learning_rate);
         let mut data: Vec<Scalar> = Vec::new();
         let mut shuffled_indices = (0..batch_size).collect::<Vec<usize>>();
         shuffled_indices.shuffle(&mut rng);
@@ -44,7 +39,7 @@ pub fn some(
             .map(|_| rng.clone().sample(uniform) as Scalar)
             .collect();
         let noise_tensor = Tensor::new(noise, &[batch_size, 1]);
-        let input = inputs.gather(0, &shuffled_indices) + noise_tensor;
+        let input = inputs.gather(0, &shuffled_indices); // + noise_tensor;
         let target = targets.gather(0, &shuffled_indices);
         let output = net.forward(input.clone());
         let mut loss = mse(&target, &output);
@@ -52,22 +47,22 @@ pub fn some(
         println!("Epoch {epoch}: Loss = {loss_scalar}");
         writeln!(file, "{epoch},{loss_scalar}").expect("Unable to write to file");
 
-        if epochs > epochs / 10 && plateau.has_plateaued(loss_scalar) {
-            learning_rate *= 0.8;
-            println!("Learning rate adjusted to {learning_rate}");
-        }
-        if learning_rate < 0.0001 {
-            println!("Learning rate too low, stopping training.");
-            break;
-        }
+        // if epochs > epochs / 10 && plateau.has_plateaued(loss_scalar) {
+        //     learning_rate *= 0.8;
+        //     println!("Learning rate adjusted to {learning_rate}");
+        // }
+        // if learning_rate < 0.0001 {
+        //     println!("Learning rate too low, stopping training.");
+        //     break;
+        // }
 
         loss.backward();
-        optimizer.step(net.parameters_mut());
+        optimizer.step(net.parameters_mut(), true);
     }
-    for i in 0..batch_size {
-        let input = inputs.slice(0, i, 1);
-        let output = net.forward(input.clone());
-        println!("Input: {input:?}, Output: {output:?}");
-    }
+    // for i in 0..batch_size {
+    //     let input = inputs.slice(0, i, 1);
+    //     let output = net.forward(input.clone());
+    //     // println!("Input: {input:?}, Output: {output:?}");
+    // }
     net
 }

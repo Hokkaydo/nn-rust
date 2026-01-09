@@ -2,9 +2,9 @@ pub mod activation;
 pub mod linear;
 pub mod models;
 
-use crate::linalg::tensor_grad::Tensor;
-use crate::nn_grad::activation::{LogSoftmax, ReLU, Softmax};
-use crate::nn_grad::linear::Linear;
+use crate::linalg::tensor::Tensor;
+use crate::nn::activation::{LogSoftmax, ReLU, Softmax};
+use crate::nn::linear::Linear;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};

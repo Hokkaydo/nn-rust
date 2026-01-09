@@ -1,9 +1,9 @@
-use crate::helpers_grad::metrics::mse;
-use crate::helpers_grad::optimizer::Optimizer;
-use crate::linalg::tensor_grad::{Scalar, Tensor};
-use crate::nn_grad::activation::{ReLU, Sigmoid};
-use crate::nn_grad::linear::Linear;
-use crate::nn_grad::models::NeuralNetwork;
+use crate::helpers::metrics::mse;
+use crate::helpers::optimizer::Optimizer;
+use crate::linalg::tensor::{Scalar, Tensor};
+use crate::nn::activation::{ReLU, Sigmoid};
+use crate::nn::linear::Linear;
+use crate::nn::models::NeuralNetwork;
 use rand::seq::SliceRandom;
 use std::io::Read;
 
@@ -80,6 +80,11 @@ impl MNIST {
                 .for_each(|x| *x = (*x as Scalar / 255.0) as u8);
             test_images.push(image);
         }
+        // TODO : Remove this limitation after testing
+        train_images = train_images[0..100].to_vec();
+        train_labels = train_labels[0..100].to_vec();
+        test_images = test_images[0..100].to_vec();
+        test_labels = test_labels[0..100].to_vec();
         MNIST {
             train_images,
             train_labels,
@@ -123,9 +128,9 @@ impl MNIST {
                 .collect();
 
             let images_tensor = if flat {
-                Tensor::with_grad(images, &[batch_size, 28 * 28])
+                Tensor::new(images, &[batch_size, 28 * 28])
             } else {
-                Tensor::with_grad(images, &[batch_size, 28, 28])
+                Tensor::new(images, &[batch_size, 28, 28])
             };
 
             let labels_tensor = Tensor::new(labels, &[batch_size, 10]);
@@ -168,22 +173,22 @@ impl MNIST {
     ) {
         for epoch in 0..epochs {
             batches.shuffle(&mut rand::rng());
-            let test_accuracy = self.test_model(batches, net);
-            println!("Initial test accuracy: {test_accuracy}");
             for (i, batch) in batches.iter().enumerate() {
-                let output = net.forward(batch.images.clone());
-                let loss = mse(&batch.labels, &output);
+                let mut output = net.forward(batch.images.clone());
+                let mut loss = mse(&batch.labels, &output);
                 let loss_scalar = loss.as_scalar();
                 println!("Epoch {epoch}: Batch {i} Loss = {loss_scalar}");
-                loss.backward_with_options(i % 10 == 0);
+                loss.backward();
                 if i > 0 && i % 10 == 0 {
-                    optimizer.step(net.parameters_mut());
-                    optimizer.reset();
-                    let test_accuracy = self.test_model(batches, net);
-                    println!("Test Accuracy after batch {i}: {test_accuracy}");
+                    optimizer.step(net.parameters_mut(), true);
+                    net.parameters_mut().iter_mut().for_each(|x| x.detach());
                 }
+                loss.detach();
+                output.detach();
             }
-            optimizer.step(net.parameters_mut());
+            optimizer.step(net.parameters_mut(), true);
+            optimizer.reset();
+            net.parameters_mut().iter_mut().for_each(|x| x.detach());
         }
     }
 

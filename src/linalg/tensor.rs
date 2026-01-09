@@ -44,6 +44,26 @@ impl Tensor {
         InternalTensor::new(data, shape).into()
     }
 
+    /// Creates a tensor_old filled with ones with the specified shape.
+    /// * `shape` - A slice representing the shape of the tensor_old.
+    ///
+    /// Returns a new tensor_old filled with ones.
+    pub fn ones(shape: &[usize]) -> Self {
+        let data_size = shape.iter().product();
+        let data = vec![1.0; data_size];
+        Self::new(data, shape)
+    }
+
+    /// Creates a tensor_old filled with zeros with the specified shape.
+    /// * `shape` - A slice representing the shape of the tensor_old.
+    ///
+    /// Returns a new tensor_old filled with zeros.
+    pub fn zeros(shape: &[usize]) -> Self {
+        let data_size = shape.iter().product();
+        let data = vec![0.0; data_size];
+        Self::new(data, shape)
+    }
+
     pub fn from_scalar(value: Scalar) -> Self {
         InternalTensor {
             storage: Rc::new(Storage::new(vec![value])),
@@ -181,9 +201,8 @@ impl InternalTensor {
         &self.shape
     }
 
-    /// Gets the value at the specified multi-dimensional indices.
+    /// Gets the value at the specified multidimensional indices.
     /// * `indices` - A slice of indices for each dimension of the tensor_old.
-    ///
     /// Returns the value at the specified indices.
     pub fn get(&self, indices: &[usize]) -> Scalar {
         self.storage.data[self.compute_flat_index(indices)]
@@ -244,15 +263,6 @@ impl Clone for InternalTensor {
 }
 
 impl Tensor {
-    fn debug_mean(&self) -> Scalar {
-        let sum: Scalar = self.storage.data.iter().sum();
-        sum / (self.shape.iter().product::<usize>() as Scalar)
-    }
-
-    fn debug_sum(&self) -> Scalar {
-        self.storage.data.iter().sum()
-    }
-
     fn debug_min(&self) -> Scalar {
         *self
             .storage
@@ -283,8 +293,8 @@ impl Debug for Tensor {
                 "data",
                 &format_args!(
                     "mean: {:.4}, sum: {:.4}, min: {:.4}, max: {:.4}",
-                    self.debug_mean(),
-                    self.debug_sum(),
+                    self.mean_scalar().as_scalar(),
+                    self.sum().as_scalar(),
                     self.debug_min(),
                     self.debug_max()
                 ),
@@ -294,9 +304,9 @@ impl Debug for Tensor {
                 &self
                     .grad
                     .borrow()
-                    .as_deref()
-                    .map(|_| "Some(Tensor)")
-                    .unwrap_or("None"),
+                    .as_ref()
+                    .map(|grad| format!("Norm {:.4}", grad.norm().as_scalar()))
+                    .unwrap_or("None".into()),
             )
             .field("grad_fn", &self.grad_fn.as_deref().map(|f| f.type_name()))
             .field("parents", &self.parents.len())

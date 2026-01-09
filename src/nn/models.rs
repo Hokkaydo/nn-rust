@@ -1,5 +1,5 @@
-use crate::linalg::tensor_grad::Tensor;
-use crate::nn_grad::{Layer, registry};
+use crate::linalg::tensor::Tensor;
+use crate::nn::{Layer, registry};
 use std::any::Any;
 use std::io::{BufRead, Write};
 use std::ops::Deref;

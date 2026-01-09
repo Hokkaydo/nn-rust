@@ -1,5 +1,5 @@
 use crate::linalg::ops::binary::kernels;
-use crate::linalg::tensor_grad::{Scalar, Tensor};
+use crate::linalg::tensor::{Scalar, Tensor};
 use std::ops::{Add, Div, Mul, Sub};
 
 /// Addition implementations

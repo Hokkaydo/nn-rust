@@ -1,5 +1,5 @@
-use crate::linalg::tensor_grad::{Scalar, Tensor};
-use crate::nn_grad::{Dumpable, Layer};
+use crate::linalg::tensor::{Scalar, Tensor};
+use crate::nn::{Dumpable, Layer};
 use rand::Rng;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
@@ -27,6 +27,17 @@ impl Linear {
         let weights = Tensor::with_grad(weights, &[n_inputs, n_outputs]);
         let bias = Tensor::with_grad(bias, &[1, n_outputs]);
 
+        Linear { weights, bias }
+    }
+
+    pub fn from_parameters(weights: Tensor, bias: Tensor) -> Self {
+        assert_eq!(weights.shape.len(), 2, "Weights must be a 2D tensor");
+        assert_eq!(bias.shape.len(), 2, "Bias must be a 2D tensor");
+        assert_eq!(bias.shape[0], 1, "Bias must have shape [1, n_outputs]");
+        assert_eq!(
+            weights.shape[1], bias.shape[1],
+            "Weights and bias output dimensions must match"
+        );
         Linear { weights, bias }
     }
 }

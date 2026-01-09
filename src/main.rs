@@ -1,6 +1,6 @@
-use nn_rs::helpers_grad::optimizer::*;
-use nn_rs::models_grad::mnist::*;
-use nn_rs::nn_grad::models::NeuralNetwork;
+use nn_rs::helpers::optimizer::*;
+use nn_rs::models::mnist::*;
+use nn_rs::nn::models::NeuralNetwork;
 
 fn main() {
     let mnist = MNIST::load_mnist();
@@ -42,10 +42,26 @@ fn train(mnist: &MNIST, net: Option<NeuralNetwork>) -> NeuralNetwork {
     };
 
     let net = if let Some(mut trained_net) = net {
-        mnist.train(&mut train_batches, 1, optimizer, &mut trained_net);
+        mnist.train(&mut train_batches, 5, optimizer, &mut trained_net);
         trained_net
     } else {
         mnist.train_linear_model(&mut train_batches, 1, optimizer)
+        // generates data of scalar from 0 to 1000
+        // let inputs = Tensor::new(
+        //     (0..100).map(|x| (x as f32)/100.0).collect(),
+        //     &[100,1]
+        // );
+        // let outputs = Tensor::new(
+        //     (0..100).map(|x| ((2*x+3) as f32)/100.0).collect(),
+        //     &[100,1]
+        // );
+        //
+        // some(
+        //     &inputs,
+        //     &outputs,
+        //     100,
+        //     0.01,
+        // )
     };
 
     net.dump_memory("mnist_output.bin");

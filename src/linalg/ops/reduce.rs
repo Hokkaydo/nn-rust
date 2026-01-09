@@ -1,5 +1,5 @@
-use crate::linalg::autograd::grad_fn::reduce::{MeanGradFn, SumAxisGradFn};
-use crate::linalg::tensor_grad::{InternalTensor, Scalar, Storage, Tensor};
+use crate::linalg::autograd::grad_fn::reduce::{MeanGradFn, SumAxisGradFn, SumGradFn};
+use crate::linalg::tensor::{InternalTensor, Scalar, Storage, Tensor};
 use crate::not_implemented_grad_fn;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -80,6 +80,10 @@ impl Tensor {
         .into()
     }
 
+    pub fn norm(&self) -> Tensor {
+        self.square().sum().sqrt()
+    }
+
     /// Slices the tensor along the specified axis
     /// and returns a new tensor containing the slice.
     /// # Arguments
@@ -90,19 +94,19 @@ impl Tensor {
     /// A new tensor containing the slice.
     pub fn slice(&self, axis: usize, start: usize, len: usize) -> Tensor {
         assert!(axis < self.shape.len(), "Axis out of bounds");
-        assert!(start + len < self.shape[axis], "Invalid slice indices");
+        assert!(start + len <= self.shape[axis], "Invalid slice indices");
 
         let mut new_shape = self.shape.clone();
         new_shape[axis] = len;
 
         let mut result_data = Vec::with_capacity(new_shape.iter().product());
-        let mut indices = vec![0; self.shape.len()];
+        let mut coords = vec![0; self.shape.len()];
         for _ in 0..new_shape.iter().product() {
-            indices[axis] += start;
-            let idx = self.compute_flat_index(&indices);
+            coords[axis] += start;
+            let idx = self.compute_flat_index(&coords);
             result_data.push(self.storage.data[idx]);
-            indices[axis] -= start;
-            Tensor::increment_indices(&mut indices, &new_shape);
+            coords[axis] -= start;
+            Tensor::increment_indices(&mut coords, &new_shape);
         }
 
         let strides = Tensor::compute_strides(&new_shape);
@@ -123,7 +127,7 @@ impl Tensor {
     /// Gathers elements from the tensor along specified axis using provided indices
     /// # Arguments
     /// * `axis` - The axis along which to gather elements
-    /// * `indices` - A tensor containing the indices to gather
+    /// * `indices` - A vector containing the indices to gather
     /// # Returns
     /// A new tensor containing the gathered elements
     pub fn gather(&self, axis: usize, indices: &[usize]) -> Tensor {
@@ -131,8 +135,8 @@ impl Tensor {
         assert!(axis < ndim);
 
         let axis_dim = self.shape[axis];
-        for &i in indices {
-            assert!(i < axis_dim, "gather index out of bounds");
+        for &idx in indices {
+            assert!(idx < axis_dim, "gather index out of bounds");
         }
 
         // Output shape
@@ -193,7 +197,7 @@ impl Tensor {
     /// A vector containing the indices of the maximum values along the specified axis
     /// # Example
     /// ```rust
-    /// use nn_rs::linalg::tensor_grad::Tensor;
+    /// use nn_rs::linalg::tensor::Tensor;
     /// let tensor = Tensor::new(vec![4.0, 3.0, 6.0, 1.0, 5.0, 2.0], &vec![2, 3]);
     /// // 4 3 6
     /// // 1 5 2
@@ -241,7 +245,7 @@ impl Tensor {
             strides: vec![1],
             offset: 0,
             grad: RefCell::new(None),
-            grad_fn: not_implemented_grad_fn!("argmax"),
+            grad_fn: not_implemented_grad_fn!("max"),
             parents: vec![],
             requires_grad: self.requires_grad,
         }
@@ -260,8 +264,16 @@ impl Tensor {
             strides: vec![1],
             offset: 0,
             grad: RefCell::new(None),
-            grad_fn: not_implemented_grad_fn!("sum"),
-            parents: vec![],
+            grad_fn: if self.requires_grad {
+                Some(Rc::new(SumGradFn::new(self.shape.clone())))
+            } else {
+                None
+            },
+            parents: if self.requires_grad {
+                vec![self.clone()]
+            } else {
+                vec![]
+            },
             requires_grad: self.requires_grad,
         }
         .into()
@@ -295,7 +307,7 @@ impl Tensor {
             offset: 0,
             grad: RefCell::new(None),
             grad_fn: if self.requires_grad {
-                Some(Rc::new(SumAxisGradFn))
+                Some(Rc::new(SumAxisGradFn::new(self.shape.clone())))
             } else {
                 None
             },

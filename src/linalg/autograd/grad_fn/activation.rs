@@ -1,21 +1,51 @@
 use crate::linalg::autograd::grad_fn::GradFn;
-use crate::linalg::tensor_grad::Tensor;
+use crate::linalg::tensor::{Scalar, Tensor};
 
-pub(crate) struct SigmoidGradFn;
+pub(crate) struct SigmoidGradFn {
+    output: Tensor,
+}
 
-impl GradFn for SigmoidGradFn {
-    fn apply(&self, output: &Tensor, grad_output: &Tensor) -> Vec<Tensor> {
-        let grad_input = grad_output * &(output * &(&Tensor::ones(output.shape()) - output));
-        vec![grad_input]
+impl SigmoidGradFn {
+    pub fn new(output: Tensor) -> Self {
+        Self { output }
     }
 }
 
-/// Mask as argument
-pub(crate) struct ReLUGradFn(pub Tensor);
+impl GradFn for SigmoidGradFn {
+    fn apply(&self, grad_output: &Tensor) -> Vec<Tensor> {
+        let out_data = self
+            .output
+            .storage
+            .data
+            .iter()
+            .zip(grad_output.storage.data.iter())
+            .map(|(&o, &g)| g * o * (1.0 - o))
+            .collect::<Vec<Scalar>>();
+
+        vec![Tensor::new(out_data, self.output.shape())]
+    }
+}
+
+pub(crate) struct ReLUGradFn {
+    mask: Tensor, // saved forward mask
+}
+
+impl ReLUGradFn {
+    pub fn new(mask: Tensor) -> Self {
+        Self { mask }
+    }
+}
 
 impl GradFn for ReLUGradFn {
-    fn apply(&self, _output: &Tensor, grad_output: &Tensor) -> Vec<Tensor> {
-        let grad_input = grad_output * &self.0;
-        vec![grad_input]
+    fn apply(&self, grad_output: &Tensor) -> Vec<Tensor> {
+        let out_data = grad_output
+            .storage
+            .data
+            .iter()
+            .zip(self.mask.storage.data.iter())
+            .map(|(&g, &m)| g * m)
+            .collect::<Vec<Scalar>>();
+
+        vec![Tensor::new(out_data, grad_output.shape())]
     }
 }

@@ -1,4 +1,4 @@
-pub mod helpers_grad;
+pub mod helpers;
 pub mod linalg;
-pub mod models_grad;
-pub mod nn_grad;
+pub mod models;
+pub mod nn;

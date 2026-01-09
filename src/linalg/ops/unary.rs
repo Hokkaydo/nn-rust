@@ -1,7 +1,7 @@
 use crate::linalg::autograd::grad_fn::unary::{
     AbsGradFn, ClampGradFn, ExpGradFn, LogGradFn, NegGradFn, PowGradFn,
 };
-use crate::linalg::tensor_grad::{InternalTensor, Scalar, Storage, Tensor};
+use crate::linalg::tensor::{InternalTensor, Scalar, Storage, Tensor};
 use std::cell::RefCell;
 use std::ops::Neg;
 use std::rc::Rc;
@@ -57,10 +57,12 @@ impl Tensor {
     /// # Returns
     /// A tensor containing the results
     pub fn pow(&self, exponent: Scalar) -> Tensor {
-        let mut result_data = Vec::with_capacity(self.shape.iter().product());
-        for i in 0..self.storage.data.len() {
-            result_data.push(self.storage.data[i].powf(exponent));
-        }
+        let result_data = self
+            .storage
+            .data
+            .iter()
+            .map(|&x| x.powf(exponent))
+            .collect::<Vec<Scalar>>();
 
         let requires_grad = self.requires_grad;
 
@@ -71,7 +73,7 @@ impl Tensor {
             offset: 0,
             grad: RefCell::new(None),
             grad_fn: if requires_grad {
-                Some(Rc::new(PowGradFn(exponent)))
+                Some(Rc::new(PowGradFn::new(self.clone(), exponent)))
             } else {
                 None
             },
@@ -103,13 +105,29 @@ impl Tensor {
     /// # Returns
     /// A tensor containing the absolute values
     pub fn abs(&self) -> Tensor {
-        let mut result_data = Vec::with_capacity(self.shape.iter().product());
-        for i in 0..self.storage.data.len() {
-            result_data.push(self.storage.data[i].abs());
-        }
+        let result_data = self
+            .storage
+            .data
+            .iter()
+            .map(|&x| x.abs())
+            .collect::<Vec<Scalar>>();
 
         let requires_grad = self.requires_grad;
 
+        let mask = self
+            .storage
+            .data
+            .iter()
+            .map(|&x| {
+                if x > 0.0 {
+                    1.0
+                } else if x < 0.0 {
+                    -1.0
+                } else {
+                    0.0
+                }
+            })
+            .collect::<Vec<Scalar>>();
         InternalTensor {
             storage: Rc::new(Storage::new(result_data)),
             shape: self.shape.clone(),
@@ -117,7 +135,7 @@ impl Tensor {
             offset: 0,
             grad: RefCell::new(None),
             grad_fn: if requires_grad {
-                Some(Rc::new(AbsGradFn))
+                Some(Rc::new(AbsGradFn::new(Tensor::new(mask, &self.shape))))
             } else {
                 None
             },
@@ -162,7 +180,7 @@ impl Tensor {
             offset: 0,
             grad: RefCell::new(None),
             grad_fn: if requires_grad {
-                Some(Rc::new(ClampGradFn(Tensor::new(mask, &self.shape))))
+                Some(Rc::new(ClampGradFn::new(Tensor::new(mask, &self.shape))))
             } else {
                 None
             },
@@ -194,7 +212,7 @@ impl Tensor {
             offset: 0,
             grad: RefCell::new(None),
             grad_fn: if requires_grad {
-                Some(Rc::new(LogGradFn))
+                Some(Rc::new(LogGradFn::new(self.clone())))
             } else {
                 None
             },
@@ -216,17 +234,13 @@ impl Tensor {
 
         let requires_grad = self.requires_grad;
 
-        InternalTensor {
+        let mut out: Tensor = InternalTensor {
             storage: Rc::new(Storage::new(result_data)),
             shape: self.shape.clone(),
             strides: self.strides.clone(),
             offset: 0,
             grad: RefCell::new(None),
-            grad_fn: if requires_grad {
-                Some(Rc::new(ExpGradFn))
-            } else {
-                None
-            },
+            grad_fn: None,
             parents: if requires_grad {
                 vec![self.clone()]
             } else {
@@ -234,7 +248,12 @@ impl Tensor {
             },
             requires_grad,
         }
-        .into()
+        .into();
+
+        if requires_grad {
+            out.set_grad_metadata(Rc::new(ExpGradFn::new(out.clone())), vec![self.clone()]);
+        }
+        out
     }
 
     pub fn sign(&self) -> Tensor {

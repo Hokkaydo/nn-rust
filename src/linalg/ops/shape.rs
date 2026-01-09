@@ -1,6 +1,7 @@
 use crate::linalg::autograd::grad_fn::shape::TransposeGradFn;
-use crate::linalg::tensor_grad::Tensor;
-use crate::linalg::tensor_grad::{InternalTensor, Scalar};
+use crate::linalg::tensor::Tensor;
+use crate::linalg::tensor::{InternalTensor, Scalar};
+use crate::not_implemented_grad_fn;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -56,8 +57,8 @@ impl Tensor {
             strides: Self::compute_strides(shape),
             offset: self.offset,
             grad: RefCell::new(None),
-            grad_fn: self.grad_fn.clone(),
-            parents: self.parents.clone(),
+            grad_fn: not_implemented_grad_fn!("reshape"),
+            parents: vec![],
             requires_grad: self.requires_grad,
         }
         .into()
@@ -87,23 +88,29 @@ impl Tensor {
         &mut storage.data
     }
 
-    /// Creates a tensor_old filled with ones with the specified shape.
-    /// * `shape` - A slice representing the shape of the tensor_old.
-    ///
-    /// Returns a new tensor_old filled with ones.
-    pub fn ones(shape: &[usize]) -> Self {
-        let data_size = shape.iter().product();
-        let data = vec![1.0; data_size];
-        Self::new(data, shape)
-    }
+    pub(crate) fn unsqueeze(&self, dim: usize) -> Tensor {
+        let mut shape = self.shape.clone();
+        let mut strides = self.strides.clone();
 
-    /// Creates a tensor_old filled with zeros with the specified shape.
-    /// * `shape` - A slice representing the shape of the tensor_old.
-    ///
-    /// Returns a new tensor_old filled with zeros.
-    pub fn zeros(shape: &[usize]) -> Self {
-        let data_size = shape.iter().product();
-        let data = vec![0.0; data_size];
-        Self::new(data, shape)
+        let stride = if dim < self.strides.len() {
+            self.strides[dim] * self.shape[dim]
+        } else {
+            1
+        };
+
+        shape.insert(dim, 1);
+        strides.insert(dim, stride);
+
+        InternalTensor {
+            storage: self.storage.clone(),
+            shape,
+            strides,
+            offset: self.offset,
+            grad: RefCell::new(None),
+            grad_fn: not_implemented_grad_fn!("unsqueeze"),
+            parents: vec![],
+            requires_grad: self.requires_grad,
+        }
+        .into()
     }
 }

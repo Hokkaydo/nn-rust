@@ -1,4 +1,4 @@
-use crate::linalg::tensor_grad::Scalar;
+use crate::linalg::tensor::Scalar;
 
 pub struct PlateauDetector {
     best_loss: Scalar,
