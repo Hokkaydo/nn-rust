@@ -145,7 +145,7 @@ impl MNIST {
 
     pub fn train_linear_model(
         &self,
-        batches: &mut Vec<MNISTBatch>,
+        batches: &mut [MNISTBatch],
         epochs: usize,
         optimizer: Box<dyn Optimizer>,
     ) -> NeuralNetwork {
@@ -166,7 +166,7 @@ impl MNIST {
 
     pub fn train(
         &self,
-        batches: &mut Vec<MNISTBatch>,
+        batches: &mut [MNISTBatch],
         epochs: usize,
         mut optimizer: Box<dyn Optimizer>,
         net: &mut NeuralNetwork,

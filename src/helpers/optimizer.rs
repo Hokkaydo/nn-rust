@@ -21,13 +21,12 @@ impl Optimizer for SGD {
             if !param.requires_grad {
                 continue;
             }
-            let grad = param.grad().expect(
-                format!(
+            let grad = param.grad().unwrap_or_else(|| {
+                panic!(
                     "Gradient not found for parameter with shape {:?}",
                     param.shape()
                 )
-                .as_str(),
-            );
+            });
             *param = &*param - &(grad * self.learning_rate);
             if zero_grad {
                 param.zero_grad();

@@ -1,3 +1,4 @@
+use nn_rs::helpers::metrics::mse;
 use nn_rs::linalg::tensor::Tensor;
 use nn_rs::nn::Layer;
 use nn_rs::nn::linear::Linear;
@@ -8,7 +9,8 @@ fn test_linear_layer_grad() {
     let input = Tensor::new(vec![1.0, 2.0, 3.0, 4.0], &[1, 4]);
     let linear = Linear::init(4, 2);
     let output = linear.forward(&input);
-    let loss = output.sum();
+    let target = Tensor::new(vec![1.0, 1.0], &[1, 2]);
+    let loss = mse(&target, &output);
     loss.backward();
 
     let [weights_grad, bias_grad] = &linear

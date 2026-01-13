@@ -32,10 +32,10 @@ impl GradFn for PowGradFn {
         let n = self.base.storage.data.len();
         let mut grad_input = vec![0.0; n];
 
-        for i in 0..n {
-            grad_input[i] = grad_output.storage.data[i]
+        for (idx, grad) in grad_input.iter_mut().enumerate() {
+            *grad = grad_output.storage.data[idx]
                 * self.exponent
-                * self.base.storage.data[i].powf(self.exponent - 1.0);
+                * self.base.storage.data[idx].powf(self.exponent - 1.0);
         }
 
         vec![Tensor::new(grad_input, self.base.shape())]
@@ -57,8 +57,8 @@ impl GradFn for AbsGradFn {
         let n = grad_output.storage.data.len();
         let mut grad_input = vec![0.0; n];
 
-        for i in 0..n {
-            grad_input[i] = grad_output.storage.data[i] * self.sign.storage.data[i];
+        for (idx, grad) in grad_input.iter_mut().enumerate() {
+            *grad = grad_output.storage.data[idx] * self.sign.storage.data[idx];
         }
 
         vec![Tensor::new(grad_input, grad_output.shape())]
@@ -80,8 +80,8 @@ impl GradFn for ClampGradFn {
         let n = grad_output.storage.data.len();
         let mut grad_input = vec![0.0; n];
 
-        for i in 0..n {
-            grad_input[i] = grad_output.storage.data[i] * self.mask.storage.data[i];
+        for (idx, grad) in grad_input.iter_mut().enumerate() {
+            *grad = grad_output.storage.data[idx] * self.mask.storage.data[idx];
         }
 
         vec![Tensor::new(grad_input, grad_output.shape())]
@@ -103,8 +103,8 @@ impl GradFn for LogGradFn {
         let n = self.input.storage.data.len();
         let mut grad_input = vec![0.0; n];
 
-        for i in 0..n {
-            grad_input[i] = grad_output.storage.data[i] / self.input.storage.data[i];
+        for (idx, grad) in grad_input.iter_mut().enumerate() {
+            *grad = grad_output.storage.data[idx] / self.input.storage.data[idx];
         }
 
         vec![Tensor::new(grad_input, self.input.shape())]
@@ -126,8 +126,8 @@ impl GradFn for ExpGradFn {
         let n = self.output.storage.data.len();
         let mut grad_input = vec![0.0; n];
 
-        for i in 0..n {
-            grad_input[i] = grad_output.storage.data[i] * self.output.storage.data[i];
+        for (idx, grad) in grad_input.iter_mut().enumerate() {
+            *grad = grad_output.storage.data[idx] * self.output.storage.data[idx];
         }
 
         vec![Tensor::new(grad_input, self.output.shape())]

@@ -1,8 +1,8 @@
 use crate::linalg::autograd::grad_fn::GradFn;
-use crate::linalg::tensor::{InternalTensor, Scalar, Tensor};
+use crate::linalg::tensor::{InternalTensor, Scalar, Tensor, TensorId};
 use std::cell::RefCell;
 use std::collections::HashSet;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 impl InternalTensor {
     pub(crate) fn with_requires_grad(mut self, requires_grad: bool) -> Self {
@@ -12,7 +12,11 @@ impl InternalTensor {
 }
 
 impl Tensor {
-    pub(crate) fn set_grad_metadata(&mut self, grad_fn: Rc<dyn GradFn>, parents: Vec<Tensor>) {
+    pub(crate) fn set_grad_metadata(
+        &mut self,
+        grad_fn: Rc<dyn GradFn>,
+        parents: Vec<Weak<InternalTensor>>,
+    ) {
         let inner = Rc::make_mut(&mut self.0);
         inner.grad_fn = Some(grad_fn);
         inner.parents = parents;
@@ -69,7 +73,17 @@ impl Tensor {
 
             let parent_grads = grad_fn.apply(&grad_out);
 
-            let parents = t.parents.iter().filter(|p| p.requires_grad);
+            let parents = t
+                .parents
+                .iter()
+                .filter_map(|x| x.upgrade())
+                .filter(|p| p.requires_grad);
+
+            println!(
+                "Len parents: {}, Len parent_grads: {}",
+                parents.clone().count(),
+                parent_grads.len()
+            );
 
             for (parent, g) in parents.zip(parent_grads) {
                 if !parent.requires_grad {
@@ -128,7 +142,7 @@ impl Tensor {
 
         let mut new_data = vec![0.0; new_shape.iter().product()];
 
-        for idx in 0..new_data.len() {
+        for (idx, data_slot) in new_data.iter_mut().enumerate() {
             // Convert flat index → multi-index in new tensor
             let mut rem = idx;
             let mut new_indices = vec![0; new_shape.len()];
@@ -147,22 +161,31 @@ impl Tensor {
                 .map(|(i, s)| i * s)
                 .sum::<usize>();
 
-            new_data[idx] = self.storage.data[old_flat];
+            *data_slot = self.storage.data[old_flat];
         }
 
         Tensor::new(new_data, &new_shape)
     }
 }
 
-fn build_topo(t: &Tensor, visited: &mut HashSet<usize>, out: &mut Vec<Tensor>) {
-    let id = Rc::as_ptr(&t.0) as usize;
+fn build_topo(t: &Tensor, visited: &mut HashSet<TensorId>, out: &mut Vec<Tensor>) {
+    let id = t.storage.id;
     if visited.contains(&id) {
         return;
     }
     visited.insert(id);
 
+    println!(
+        "Visiting tensor id: {}, requires_grad: {}",
+        id, t.requires_grad
+    );
     for p in &t.parents {
-        build_topo(&p, visited, out);
+        if let Some(p) = p.upgrade() {
+            println!("parent requires_grad: {}", p.requires_grad);
+            build_topo(&Tensor(p), visited, out);
+        } else {
+            println!("parent has been dropped");
+        }
     }
 
     out.push(t.clone());

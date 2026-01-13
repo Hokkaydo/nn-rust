@@ -33,7 +33,13 @@ pub fn mse(target: &Tensor, pred: &Tensor) -> Tensor {
         pred.shape(),
         "Target and prediction tensors must have the same shape for MSE"
     );
-    (pred - target).square().mean_scalar()
+    let sub = pred - target;
+    println!("created sub tensor {}", sub.storage.id);
+    let sq = sub.square();
+    println!("created sq tensor {}", sq.storage.id);
+    let s = sq.mean_scalar();
+    println!("created mean tensor {}", s.storage.id);
+    s
 }
 
 pub fn mae(target: &Tensor, pred: &Tensor) -> Tensor {
